@@ -1,22 +1,147 @@
-### AL ###
-#Template for AL projects for Dynamics 365 Business Central
-#launch.json folder
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Database
+*.sql.backup
+*.dump
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and Editor files
 .vscode/
-#Cache folder
-.alcache/
-#Symbols folder
-.alpackages/
-#Snapshots folder
-.snapshots/
-#Testing Output folder
-.output/
-#Extension App-file
-*.app
-#Rapid Application Development File
-rad.json
-#Translation Base-file
-*.g.xlf
-#License-file
-*.flf
-#Test results file
-TestResults.xml
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# Electron build output
+dist/
+build/
+out/
+release/
+*.dmg
+*.exe
+*.AppImage
+*.deb
+*.rpm
+*.zip
+
+# Electron-builder output
+dist_electron/
+
+# Coverage directory used by testing tools
+coverage/
+*.lcov
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Cache
+.cache/
+.parcel-cache/
+.npm/
+.eslintcache
+.node_repl_history
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# dotenv environment variable files
+.env*
+
+# webpack
+.webpack/
+
+# TypeScript
+*.tsbuildinfo
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Application specific
+uploads/
+backups/
+reports/generated/
+receipts/
+
+# Mac specific
+.AppleDouble
+.LSOverride
+
+# Windows specific
+$RECYCLE.BIN/
+
+# Linux specific
+.directory
+
+# Electron specific
+*.asar
+
+# Test files (if you want to ignore)
+# test/
+# *.test.js
+# *.spec.js
