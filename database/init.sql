@@ -65,4 +65,18 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX idx_products_sku ON products(sku);
 CREATE INDEX idx_products_category ON products(category);
 CREATE INDEX idx_sales_date ON sales(sale_date);
-CREATE INDEX idx_inventory_product ON inventory(product_id);
+CREATE INDEX idx_inventory_product ON products(id);
+
+-- Create Inventory Logs Table
+CREATE TABLE IF NOT EXISTS inventory_logs (
+    id SERIAL PRIMARY KEY,
+    inventory_id INTEGER REFERENCES inventory(id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    change_amount INTEGER NOT NULL,
+    new_quantity INTEGER NOT NULL,
+    reason VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_inventory_logs_inventory ON inventory_logs(inventory_id);
+CREATE INDEX idx_inventory_logs_product ON inventory_logs(product_id);

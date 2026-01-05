@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
+const { authenticateToken } = require('../middleware/auth');
+
+router.use(authenticateToken);
 
 router.get('/', async (req, res) => {
   try {
@@ -53,28 +56,36 @@ router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     const { customer_id, items, payment_method, total_amount } = req.body;
-    
+
     const saleResult = await client.query(
       'INSERT INTO sales (customer_id, total_amount, payment_method) VALUES ($1, $2, $3) RETURNING *',
       [customer_id, total_amount, payment_method]
     );
-    
+
     const sale = saleResult.rows[0];
-    
+
     for (const item of items) {
       await client.query(
         'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES ($1, $2, $3, $4, $5)',
         [sale.id, item.product_id, item.quantity, item.unit_price, item.subtotal]
       );
-      
-      await client.query(
-        'UPDATE inventory SET quantity = quantity - $1 WHERE product_id = $2',
+
+      const invRes = await client.query(
+        'UPDATE inventory SET quantity = quantity - $1 WHERE product_id = $2 RETURNING id, quantity',
         [item.quantity, item.product_id]
       );
+
+      if (invRes.rows.length > 0) {
+        const inv = invRes.rows[0];
+        await client.query(
+          'INSERT INTO inventory_logs (inventory_id, product_id, change_amount, new_quantity, reason) VALUES ($1, $2, $3, $4, $5)',
+          [inv.id, item.product_id, -item.quantity, inv.quantity, `Sale #${sale.id}`]
+        );
+      }
     }
-    
+
     await client.query('COMMIT');
     res.status(201).json(sale);
   } catch (err) {

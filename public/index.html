@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Shop Management System</title>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     * {
@@ -14,9 +17,74 @@
     }
 
     body {
-      display: flex;
-      min-height: 100vh;
       background: #f4f6f9;
+      min-height: 100vh;
+    }
+
+    /* Auth Styles */
+    #auth-container {
+      position: fixed;
+      inset: 0;
+      background: #111827;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .auth-card {
+      background: #fff;
+      padding: 40px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    .auth-card h1 {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #111827;
+    }
+
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .auth-form input {
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
+    .auth-form button {
+      padding: 12px;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .auth-form button:hover {
+      background: #1d4ed8;
+    }
+
+    #app-container {
+      display: none;
+      /* Hidden until login */
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    #app-container.active {
+      display: flex;
     }
 
     /* Sidebar */
@@ -79,7 +147,7 @@
       background: #fff;
       padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
     }
 
     .card h3 {
@@ -109,7 +177,8 @@
       overflow: hidden;
     }
 
-    table th, table td {
+    table th,
+    table td {
       padding: 12px;
       text-align: left;
       border-bottom: 1px solid #eee;
@@ -138,190 +207,499 @@
       align-items: center;
       margin-bottom: 15px;
     }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .close {
+      position: absolute;
+      right: 15px;
+      top: 15px;
+      font-size: 28px;
+      font-weight: bold;
+      color: #aaa;
+      cursor: pointer;
+    }
+
+    .close:hover {
+      color: #000;
+    }
+
+    .modal h2 {
+      margin-bottom: 20px;
+    }
+
+    .modal form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .modal label {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .modal input,
+    .modal textarea,
+    .modal select {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .modal textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .modal button[type="submit"] {
+      margin-top: 10px;
+    }
+
+    .status-ok {
+      color: green;
+    }
+
+    .status-low {
+      color: orange;
+    }
+
+    .status-critical {
+      color: red;
+    }
+
+    /* Reports Styles */
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .report-card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      text-align: center;
+    }
+
+    .report-card h4 {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    .report-card p {
+      font-size: 1.8em;
+      font-weight: bold;
+      color: #1f2937;
+    }
+
+    .chart-container {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      margin-bottom: 25px;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* POS UI & Print Styles */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+
+      #receipt-print,
+      #receipt-print * {
+        visibility: visible;
+      }
+
+      #receipt-print {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 20px;
+        color: #000;
+        background: #fff;
+      }
+
+      .modal,
+      .sidebar,
+      .topbar,
+      .cards,
+      .section-header,
+      button {
+        display: none !important;
+      }
+    }
+
+    #receipt-print {
+      display: none;
+    }
+
+    .modal-content.wide {
+      max-width: 900px;
+    }
+
+    .pos-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .cart-table th,
+    .cart-table td {
+      padding: 8px;
+      font-size: 13px;
+    }
+
+    .cart-summary {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 2px solid #eee;
+      text-align: right;
+    }
+
+    .cart-summary h2 {
+      color: #2563eb;
+    }
+
+    input.qty-input {
+      width: 60px;
+      padding: 4px;
+    }
   </style>
 </head>
 
 <body>
-
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <h2>ShopMS</h2>
-    <ul>
-      <li class="active" onclick="showSection('dashboard')">📊 Dashboard</li>
-      <li onclick="showSection('products')">📦 Products</li>
-      <li onclick="showSection('inventory')">📋 Inventory</li>
-      <li onclick="showSection('sales')">💰 Sales</li>
-      <li onclick="showSection('customers')">👥 Customers</li>
-      <li onclick="showSection('reports')">📈 Reports</li>
-    </ul>
-  </aside>
-
-  <!-- Main Content -->
-  <main class="main">
-
-    <div class="topbar">
-      <h2>Dashboard</h2>
-      <div>
-        <span>Admin</span> | <a href="#" style="color:#2563eb;">Logout</a>
-      </div>
+  <!-- Login Screen -->
+  <div id="auth-container">
+    <div class="auth-card">
+      <h1>Shop Management</h1>
+      <form id="login-form" class="auth-form">
+        <input type="text" id="login-username" placeholder="Username" required>
+        <input type="password" id="login-password" placeholder="Password" required>
+        <button type="submit">Login</button>
+      </form>
+      <p id="login-error" style="color:red; margin-top:15px; text-align:center; display:none;"></p>
     </div>
+  </div>
 
-    <!-- Dashboard -->
-    <section id="dashboard" class="active">
-      <div class="cards">
-        <div class="card">
-          <h3>Total Products</h3>
-          <p>0</p>
-        </div>
-        <div class="card">
-          <h3>Total Sales</h3>
-          <p>$0</p>
-        </div>
-        <div class="card">
-          <h3>Low Stock Items</h3>
-          <p>0</p>
-        </div>
-        <div class="card">
-          <h3>Total Customers</h3>
-          <p>0</p>
+  <div id="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h2>Shop POS</h2>
+      <ul>
+        <li onclick="showSection('dashboard')" id="nav-dashboard" class="active">Dashboard</li>
+        <li onclick="showSection('products')" id="nav-products">Products</li>
+        <li onclick="showSection('inventory')" id="nav-inventory">Inventory</li>
+        <li onclick="showSection('sales')" id="nav-sales">Sales</li>
+        <li onclick="showSection('customers')" id="nav-customers">Customers</li>
+        <li onclick="showSection('reports')" id="nav-reports">Reports</li>
+        <li onclick="handleLogout()" style="margin-top:20px; color:#f87171;">Logout</li>
+      </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+
+      <div class="topbar">
+        <h2 id="section-title">Dashboard</h2>
+        <div>
+          <span id="topbar-user-label">User</span> | <a href="#" onclick="handleLogout()"
+            style="color:#2563eb; text-decoration:none;">Logout</a>
         </div>
       </div>
 
-      <h3>Recent Sales</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Customer</th>
-            <th>Amount</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td colspan="4">No sales yet</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+      <!-- Dashboard -->
+      <section id="dashboard" class="active">
+        <div class="cards">
+          <div class="card">
+            <h3>Total Products</h3>
+            <p id="total-products">0</p>
+          </div>
+          <div class="card">
+            <h3>Total Sales</h3>
+            <p id="total-sales">KES 0</p>
+          </div>
+          <div class="card">
+            <h3>Low Stock Items</h3>
+            <p id="low-stock">0</p>
+          </div>
+          <div class="card">
+            <h3>Total Customers</h3>
+            <p id="total-customers">0</p>
+          </div>
+        </div>
 
-    <!-- Products -->
-    <section id="products">
-      <div class="section-header">
-        <h3>Products</h3>
-        <button>+ Add Product</button>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>SKU</th>
-            <th>Category</th>
-            <th>Price</th>
-            <th>Cost</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td colspan="7">No products available</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+        <h3>Recent Sales</h3>
+        <table id="recent-sales-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Customer</th>
+              <th>Amount</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="4">No sales yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-    <!-- Inventory -->
-    <section id="inventory">
-      <h3>Inventory Management</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>SKU</th>
-            <th>Stock</th>
-            <th>Min Level</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td colspan="6">No inventory data</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+      <!-- Products -->
+      <section id="products">
+        <div class="section-header">
+          <h3>Products</h3>
+          <button id="add-product-btn">+ Add Product</button>
+        </div>
+        <table id="products-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>SKU</th>
+              <th>Category</th>
+              <th>Price</th>
+              <th>Cost</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="7">No products available</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-    <!-- Sales -->
-    <section id="sales">
-      <div class="section-header">
-        <h3>Sales</h3>
-        <button>+ New Sale</button>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Customer</th>
-            <th>Amount</th>
-            <th>Payment</th>
-            <th>Date</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td colspan="6">No sales records</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+      <!-- Inventory -->
+      <section id="inventory">
+        <h3>Inventory Management</h3>
+        <table id="inventory-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>SKU</th>
+              <th>Stock</th>
+              <th>Min Level</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="6">No inventory data</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-    <!-- Customers -->
-    <section id="customers">
-      <div class="section-header">
-        <h3>Customers</h3>
-        <button>+ Add Customer</button>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Phone</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td colspan="5">No customers yet</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+      <!-- Sales -->
+      <section id="sales">
+        <div class="section-header">
+          <h3>Sales</h3>
+          <button id="new-sale-btn">+ New Sale</button>
+        </div>
+        <table id="sales-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Customer</th>
+              <th>Amount</th>
+              <th>Payment</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="6">No sales records</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-    <!-- Reports -->
-    <section id="reports">
-      <h3>Reports</h3>
-      <br />
-      From: <input type="date" />
-      To: <input type="date" />
-      <button>Generate Report</button>
-    </section>
+      <!-- Customers -->
+      <section id="customers">
+        <div class="section-header">
+          <h3>Customers</h3>
+          <button id="add-customer-btn">+ Add Customer</button>
+        </div>
+        <table id="customers-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="5">No customers yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-  </main>
+      <!-- Reports -->
+      <section id="reports">
+        <div class="section-header">
+          <h3>Reports & Analytics</h3>
+          <button id="export-csv-btn" style="background:#059669; display:none;" onclick="exportToCSV()">Export to
+            CSV</button>
+        </div>
+        <div class="topbar" style="margin-top: 20px;">
+          <div style="display: flex; gap: 15px; align-items: center;">
+            <span>From:</span> <input type="date" id="report-from" />
+            <span>To:</span> <input type="date" id="report-to" />
+            <button id="generate-report-btn">Generate Report</button>
+          </div>
+        </div>
 
+        <div id="report-summary" class="report-grid" style="display:none; margin-top:20px;">
+          <div class="report-card">
+            <h4>Total Sales</h4>
+            <p id="rep-total-sales">0.00</p>
+          </div>
+          <div class="report-card">
+            <h4>Total Profit</h4>
+            <p id="rep-total-profit">0.00</p>
+          </div>
+          <div class="report-card">
+            <h4>Transactions</h4>
+            <p id="rep-total-trans">0</p>
+          </div>
+          <div class="report-card">
+            <h4>Avg. Sale</h4>
+            <p id="rep-avg-sale">0.00</p>
+          </div>
+        </div>
+
+        <div class="charts-grid" id="report-charts" style="display:none;">
+          <div class="chart-container">
+            <h4>Sales & Profit Trend</h4>
+            <canvas id="trendChart"></canvas>
+          </div>
+          <div class="chart-container">
+            <h4>Sales by Category</h4>
+            <canvas id="categoryChart"></canvas>
+          </div>
+        </div>
+
+        <div id="report-table-container" style="display:none; margin-top: 20px;">
+          <h3>Top Selling Products</h3>
+          <table id="report-products-table" style="margin-top: 10px;">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Units Sold</th>
+                <th>Revenue</th>
+              </tr>
+            </thead>
+            <tbody id="report-results"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div> <!-- End app-container -->
+
+  <!-- Modal -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Receipt Print Container -->
+  <div id="receipt-print"></div>
+
+  <script src="js/app.js"></script>
   <script>
     function showSection(id) {
       document.querySelectorAll("section").forEach(sec => sec.classList.remove("active"));
-      document.getElementById(id).classList.add("active");
+      const section = document.getElementById(id);
+      if (section) section.classList.add("active");
 
+      const titleEl = document.getElementById('section-title');
+      if (titleEl) titleEl.textContent = id.charAt(0).toUpperCase() + id.slice(1);
+
+      // Update sidebar active state
       document.querySelectorAll(".sidebar li").forEach(li => li.classList.remove("active"));
-      event.target.classList.add("active");
+      const activeNav = document.getElementById(`nav-${id}`);
+      if (activeNav) activeNav.classList.add("active");
+
+      // Load data when switching sections
+      switch (id) {
+        case 'dashboard':
+          loadDashboard();
+          break;
+        case 'products':
+          loadProducts();
+          break;
+        case 'inventory':
+          loadInventory();
+          break;
+        case 'sales':
+          loadSales();
+          break;
+        case 'customers':
+          loadCustomers();
+          break;
+      }
     }
   </script>
 
 </body>
+
 </html>

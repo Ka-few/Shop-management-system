@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
+const { authenticateToken, authorize } = require('../middleware/auth');
+
+// Apply protection to all routes in this file
+router.use(authenticateToken);
+
+// Admin-only operations
+const adminOnly = authorize(['admin']);
 
 // Get all products
 router.get('/', async (req, res) => {
@@ -27,21 +34,43 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create product
-router.post('/', async (req, res) => {
+router.post('/', adminOnly, async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const { name, description, price, cost, sku, barcode, category } = req.body;
-    const result = await pool.query(
+
+    // Insert product
+    const productResult = await client.query(
       'INSERT INTO products (name, description, price, cost, sku, barcode, category) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
       [name, description, price, cost, sku, barcode, category]
     );
-    res.status(201).json(result.rows[0]);
+    const product = productResult.rows[0];
+
+    // Initialize inventory
+    await client.query(
+      'INSERT INTO inventory (product_id, quantity, min_stock_level) VALUES ($1, $2, $3)',
+      [product.id, 0, 10]
+    );
+
+    // Log initial adjustment
+    await client.query(
+      'INSERT INTO inventory_logs (inventory_id, product_id, change_amount, new_quantity, reason) SELECT id, product_id, 0, 0, \'Initial Stock\' FROM inventory WHERE product_id = $1',
+      [product.id]
+    );
+
+    await client.query('COMMIT');
+    res.status(201).json(product);
   } catch (err) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
 // Update product
-router.put('/:id', async (req, res) => {
+router.put('/:id', adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, price, cost, sku, barcode, category } = req.body;
@@ -59,7 +88,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete product
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('DELETE FROM products WHERE id = $1', [id]);
