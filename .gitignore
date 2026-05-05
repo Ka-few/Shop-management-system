@@ -1,147 +1,69 @@
 # Dependencies
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-package-lock.json
-yarn.lock
+**/node_modules/
 
-# Environment variables
+# Environment and local secrets
 .env
-.env.local
-.env.development
-.env.test
-.env.production
+.env.*
+!.env.example
+!env.template
 
-# Database
-*.sql.backup
-*.dump
+# Local databases and generated data
 *.db
+*.db-*
 *.sqlite
 *.sqlite3
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# Operating System Files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-desktop.ini
-
-# IDE and Editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-*.sublime-project
-
-# Electron build output
-dist/
-build/
-out/
-release/
-*.dmg
-*.exe
-*.AppImage
-*.deb
-*.rpm
-*.zip
-
-# Electron-builder output
-dist_electron/
-
-# Coverage directory used by testing tools
-coverage/
-*.lcov
-.nyc_output/
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# Compiled files
-*.com
-*.class
-*.dll
-*.exe
-*.o
-*.so
-
-# Cache
-.cache/
-.parcel-cache/
-.npm/
-.eslintcache
-.node_repl_history
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# dotenv environment variable files
-.env*
-
-# webpack
-.webpack/
-
-# TypeScript
-*.tsbuildinfo
-
-# Backup files
-*.bak
-*.backup
-*~
-
-# Application specific
+*.dump
+*.sql.backup
 uploads/
 backups/
 reports/generated/
 receipts/
 
-# Mac specific
-.AppleDouble
-.LSOverride
+# Logs and runtime files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.pid
+*.pid.lock
 
-# Windows specific
-$RECYCLE.BIN/
+# JavaScript and frontend build output
+dist/
+dist-ssr/
+build/
+out/
+release/
+coverage/
+.nyc_output/
+.cache/
+.parcel-cache/
+.vite/
+*.tsbuildinfo
 
-# Linux specific
-.directory
-
-# Electron specific
+# Electron packaging output
+dist_electron/
 *.asar
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.zip
 
-# Test files (if you want to ignore)
-# test/
-# *.test.js
-# *.spec.js
+# Rust and Tauri generated output
+target/
+**/target/
+**/src-tauri/gen/schemas/
+
+# Editor and OS files
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+.directory
