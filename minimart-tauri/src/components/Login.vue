@@ -35,11 +35,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useNotifications } from '../composables/useNotifications'
 
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+const { showToast } = useNotifications()
 
 const emit = defineEmits<{
   loginSuccess: [user: any]
@@ -60,6 +62,7 @@ const handleLogin = async () => {
     emit('loginSuccess', (result as any).user)
   } catch (err) {
     error.value = err as string
+    showToast('Login failed', String(err), 'error')
   } finally {
     loading.value = false
   }
@@ -72,14 +75,16 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #0a0a0a;
+  padding: 20px;
 }
 
 .login-card {
-  background: white;
+  background: #ffffff;
   padding: 2rem;
-  border-radius: 10px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid #d4af37;
+  border-radius: 8px;
+  box-shadow: 0 18px 45px rgba(212, 175, 55, 0.16);
   width: 100%;
   max-width: 400px;
 }
@@ -87,7 +92,7 @@ const handleLogin = async () => {
 .login-card h2 {
   text-align: center;
   margin-bottom: 2rem;
-  color: #333;
+  color: #0a0a0a;
   font-size: 1.8rem;
 }
 
@@ -104,29 +109,30 @@ const handleLogin = async () => {
 
 .form-group label {
   margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #555;
+  font-weight: 700;
+  color: #3d3523;
 }
 
 .form-group input {
   padding: 0.75rem;
-  border: 2px solid #e1e5e9;
-  border-radius: 5px;
+  border: 1px solid #d7c58b;
+  border-radius: 6px;
   font-size: 1rem;
-  transition: border-color 0.3s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #d4af37;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18);
 }
 
 .login-btn {
   padding: 0.75rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 5px;
+  background: #0a0a0a;
+  color: #d4af37;
+  border: 1px solid #0a0a0a;
+  border-radius: 6px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -135,6 +141,7 @@ const handleLogin = async () => {
 
 .login-btn:hover:not(:disabled) {
   transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(212, 175, 55, 0.2);
 }
 
 .login-btn:disabled {
@@ -143,7 +150,7 @@ const handleLogin = async () => {
 }
 
 .error-message {
-  color: #e74c3c;
+  color: #b91c1c;
   text-align: center;
   margin-top: 1rem;
   font-weight: 500;

@@ -2,6 +2,8 @@
 import { ref } from 'vue'
 import Login from './components/Login.vue'
 import POS from './components/POS.vue'
+import NotificationHost from './components/NotificationHost.vue'
+import { useNotifications } from './composables/useNotifications'
 
 interface User {
   id: number
@@ -12,15 +14,18 @@ interface User {
 
 const currentUser = ref<User | null>(null)
 const isLoggedIn = ref(false)
+const { showToast } = useNotifications()
 
 const handleLoginSuccess = (user: User) => {
   currentUser.value = user
   isLoggedIn.value = true
+  showToast('Login successful', `Welcome back, ${user.username}.`, 'success')
 }
 
 const handleLogout = () => {
   currentUser.value = null
   isLoggedIn.value = false
+  showToast('Logged out', 'Your session has ended.', 'info')
 }
 </script>
 
@@ -28,6 +33,7 @@ const handleLogout = () => {
   <div id="app">
     <Login v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
     <POS v-else :current-user="currentUser" @logout="handleLogout" />
+    <NotificationHost />
   </div>
 </template>
 
@@ -44,11 +50,25 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #f5f7fa;
+  background: #0a0a0a;
+  color: #0a0a0a;
 }
 
 #app {
   height: 100vh;
   width: 100vw;
+}
+
+:root {
+  --color-black: #0a0a0a;
+  --color-black-soft: #151515;
+  --color-white: #ffffff;
+  --color-cream: #f8f5ed;
+  --color-gold: #d4af37;
+  --color-gold-dark: #9b7628;
+  --color-gold-soft: #f2df9b;
+  --color-border: #e5d8aa;
+  --color-muted: #6d6250;
+  --color-danger: #b91c1c;
 }
 </style>

@@ -2,7 +2,7 @@
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <strong>Minimart POS</strong>
+        <strong>{{ receiptStoreName }}</strong>
         <span>{{ currentUser?.username }}</span>
       </div>
       <nav class="nav-tabs">
@@ -30,7 +30,7 @@
             <h2>Recent Transactions</h2>
             <table>
               <tbody>
-                <tr v-for="sale in recentSales" :key="sale.id">
+                <tr v-for="sale in paginatedRecentSales" :key="sale.id">
                   <td>#{{ sale.id }}</td>
                   <td>{{ sale.customer_name }}</td>
                   <td>KES {{ money(sale.total_amount) }}</td>
@@ -38,12 +38,13 @@
                 <tr v-if="recentSales.length === 0"><td colspan="3">No completed sales yet.</td></tr>
               </tbody>
             </table>
+            <PaginationControls v-model:page="pages.recentSales" v-model:page-size="pageSizes.recentSales" :total-items="recentSales.length" />
           </section>
           <section class="panel">
             <h2>Top Products</h2>
             <table>
               <tbody>
-                <tr v-for="product in topProducts" :key="product.name">
+                <tr v-for="product in paginatedTopProducts" :key="product.name">
                   <td>{{ product.name }}</td>
                   <td>{{ product.total_quantity }} sold</td>
                   <td>KES {{ money(product.total_revenue) }}</td>
@@ -51,6 +52,7 @@
                 <tr v-if="topProducts.length === 0"><td colspan="3">No product sales yet.</td></tr>
               </tbody>
             </table>
+            <PaginationControls v-model:page="pages.topProducts" v-model:page-size="pageSizes.topProducts" :total-items="topProducts.length" />
           </section>
         </div>
       </section>
@@ -79,7 +81,7 @@
 
           <div class="products-grid">
             <button
-              v-for="product in filteredProducts"
+              v-for="product in paginatedFilteredProducts"
               :key="product.id"
               class="product-tile"
               :disabled="product.quantity_in_stock <= 0"
@@ -93,6 +95,7 @@
               </small>
             </button>
           </div>
+          <PaginationControls v-model:page="pages.posProducts" v-model:page-size="pageSizes.posProducts" :total-items="filteredProducts.length" />
         </div>
 
         <aside class="cart-panel">
@@ -130,23 +133,6 @@
           <button :disabled="cart.length === 0 || processingPayment">{{ processingPayment ? 'Processing' : 'Complete Sale' }}</button>
           <p v-if="saleMessage" class="form-message" :class="{ error: saleError }">{{ saleMessage }}</p>
         </form>
-        <section v-if="lastReceipt" class="receipt-panel">
-          <header>
-            <h3>Receipt #{{ lastReceipt.saleId }}</h3>
-            <span>{{ lastReceipt.createdAt }}</span>
-          </header>
-          <div v-for="item in lastReceipt.items" :key="item.name" class="receipt-line">
-            <span>{{ item.name }} x {{ item.quantity }}</span>
-            <strong>KES {{ money(item.lineTotal) }}</strong>
-          </div>
-          <div class="receipt-totals">
-            <div><span>Subtotal</span><strong>KES {{ money(lastReceipt.subtotal) }}</strong></div>
-            <div><span>VAT 16% included</span><strong>KES {{ money(lastReceipt.vat) }}</strong></div>
-            <div class="grand"><span>Total</span><strong>KES {{ money(lastReceipt.total) }}</strong></div>
-            <div><span>Paid</span><strong>KES {{ money(lastReceipt.paid) }}</strong></div>
-            <div><span>Change</span><strong>KES {{ money(lastReceipt.change) }}</strong></div>
-          </div>
-        </section>
         </aside>
       </section>
 
@@ -184,7 +170,7 @@
           <table>
             <thead><tr><th>Name</th><th>SKU</th><th>Barcode</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
             <tbody>
-              <tr v-for="product in products" :key="product.id">
+              <tr v-for="product in paginatedProducts" :key="product.id">
                 <td>{{ product.name }}</td>
                 <td>{{ product.sku }}</td>
                 <td>{{ product.barcode || '-' }}</td>
@@ -198,6 +184,7 @@
               </tr>
             </tbody>
           </table>
+          <PaginationControls v-model:page="pages.products" v-model:page-size="pageSizes.products" :total-items="products.length" />
         </section>
       </section>
 
@@ -207,7 +194,7 @@
           <table>
             <thead><tr><th>Product</th><th>Stock</th><th>Reorder</th><th>Status</th><th>Adjust</th></tr></thead>
             <tbody>
-              <tr v-for="item in inventory" :key="item.product_id">
+              <tr v-for="item in paginatedInventory" :key="item.product_id">
                 <td>{{ item.product_name }}</td>
                 <td>{{ item.current_stock }}</td>
                 <td>{{ item.reorder_level }}</td>
@@ -219,6 +206,7 @@
               </tr>
             </tbody>
           </table>
+          <PaginationControls v-model:page="pages.inventory" v-model:page-size="pageSizes.inventory" :total-items="inventory.length" />
         </section>
       </section>
 
@@ -233,25 +221,66 @@
           <h2>Sales by Category</h2>
           <table>
             <tbody>
-              <tr v-for="row in salesByCategory" :key="row.name">
+              <tr v-for="row in paginatedSalesByCategory" :key="row.name">
                 <td>{{ row.icon }} {{ row.name }}</td>
                 <td>{{ row.product_count }} products</td>
                 <td>KES {{ money(row.total_revenue) }}</td>
               </tr>
             </tbody>
           </table>
+          <PaginationControls v-model:page="pages.salesByCategory" v-model:page-size="pageSizes.salesByCategory" :total-items="salesByCategory.length" />
+        </section>
+      </section>
+
+      <section v-if="activeView === 'accounting'" class="view">
+        <header class="view-header">
+          <h1>Accounting</h1>
+          <span>Double-entry ledger controls</span>
+        </header>
+        <nav class="accounting-tabs">
+          <button :class="{ active: activeAccountingTab === 'accounts' }" @click="activeAccountingTab = 'accounts'">Chart of Accounts</button>
+          <button :class="{ active: activeAccountingTab === 'journal' }" @click="activeAccountingTab = 'journal'">Journal Entries</button>
+          <button :class="{ active: activeAccountingTab === 'pl' }" @click="activeAccountingTab = 'pl'">Profit & Loss</button>
+        </nav>
+        <section class="panel">
+          <ChartOfAccountsTab v-if="activeAccountingTab === 'accounts'" />
+          <JournalEntriesTab v-if="activeAccountingTab === 'journal'" />
+          <ProfitAndLossTab v-if="activeAccountingTab === 'pl'" />
         </section>
       </section>
 
       <section v-if="activeView === 'settings'" class="view">
-        <header class="view-header"><h1>Settings</h1><button @click="validateDb">Validate DB</button></header>
+        <header class="view-header">
+          <h1>Settings</h1>
+          <div class="settings-actions">
+            <button @click="saveAllSettings" :disabled="savingAllSettings">{{ savingAllSettings ? 'Saving...' : 'Save All' }}</button>
+            <button @click="validateDb">Validate DB</button>
+          </div>
+        </header>
         <section class="panel">
           <table>
+            <thead>
+              <tr><th>Key</th><th>Value</th><th>Description</th><th>Action</th></tr>
+            </thead>
             <tbody>
               <tr v-for="setting in settings" :key="setting.key">
                 <td>{{ setting.key }}</td>
-                <td>{{ setting.value }}</td>
+                <td>
+                  <input
+                    v-model="settingEdits[setting.key]"
+                    :placeholder="setting.value || ''"
+                  />
+                </td>
                 <td>{{ setting.description }}</td>
+                <td>
+                  <button
+                    type="button"
+                    @click="saveSetting(setting.key)"
+                    :disabled="savingSettingKey === setting.key"
+                  >
+                    {{ savingSettingKey === setting.key ? 'Saving...' : 'Save' }}
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -259,12 +288,62 @@
         <pre v-if="dbValidation">{{ dbValidation }}</pre>
       </section>
     </main>
+
+    <div v-if="printReceiptData" class="print-popup" role="dialog" aria-modal="true">
+      <section class="print-dialog">
+        <header class="print-actions">
+          <div>
+            <strong>Receipt #{{ printReceiptData.saleId }}</strong>
+            <span>{{ printReceiptData.createdAt }}</span>
+          </div>
+          <div>
+            <button type="button" class="icon-btn" @click="printReceipt" aria-label="Print receipt">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9V2h12v7" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <path d="M6 14h12v8H6z" />
+              </svg>
+            </button>
+            <button type="button" class="icon-btn close-btn" @click="closePrintPopup" aria-label="Close receipt print popup">x</button>
+          </div>
+        </header>
+
+        <article class="print-receipt">
+          <header>
+            <strong>{{ receiptStoreName }}</strong>
+            <span>Receipt #{{ printReceiptData.saleId }}</span>
+            <small>{{ printReceiptData.createdAt }}</small>
+            <small v-if="receiptStoreAddress">{{ receiptStoreAddress }}</small>
+            <small v-if="receiptStorePhone">{{ receiptStorePhone }}</small>
+          </header>
+          <div class="print-items">
+            <div v-for="item in printReceiptData.items" :key="item.name" class="print-line">
+              <span>{{ item.name }} x {{ item.quantity }}</span>
+              <strong>KES {{ money(item.lineTotal) }}</strong>
+            </div>
+          </div>
+          <div class="print-totals">
+            <div><span>Subtotal</span><strong>KES {{ money(printReceiptData.subtotal) }}</strong></div>
+            <div><span>VAT 16% included</span><strong>KES {{ money(printReceiptData.vat) }}</strong></div>
+            <div class="grand"><span>Total</span><strong>KES {{ money(printReceiptData.total) }}</strong></div>
+            <div><span>Paid</span><strong>KES {{ money(printReceiptData.paid) }}</strong></div>
+            <div><span>Change</span><strong>KES {{ money(printReceiptData.change) }}</strong></div>
+          </div>
+          <footer v-if="receiptFooter" class="print-footer">{{ receiptFooter }}</footer>
+        </article>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useNotifications } from '../composables/useNotifications'
+import PaginationControls from './PaginationControls.vue'
+import ChartOfAccountsTab from './accounting/ChartOfAccountsTab.vue'
+import JournalEntriesTab from './accounting/JournalEntriesTab.vue'
+import ProfitAndLossTab from './accounting/ProfitAndLossTab.vue'
 
 interface User { id: number; username: string; email: string; role: string }
 interface Category { id: number; name: string; icon: string | null; description: string | null }
@@ -283,6 +362,7 @@ interface Product {
 }
 interface CartItem { product: Product; quantity: number; barcodeScanned?: string }
 interface InventoryStatus { product_id: number; product_name: string; current_stock: number; reorder_level: number; status: string }
+interface Setting { key: string; value: string | null; description: string | null }
 interface ReceiptItem { name: string; quantity: number; lineTotal: number }
 interface Receipt {
   saleId: number
@@ -290,6 +370,10 @@ interface Receipt {
   items: ReceiptItem[]
   subtotal: number
   vat: number
+  netSales: number
+  cogs: number
+  profit: number
+  marginPercent: number
   total: number
   paid: number
   change: number
@@ -304,10 +388,12 @@ const tabs = [
   { id: 'products', label: 'Products', icon: '□' },
   { id: 'inventory', label: 'Inventory', icon: '≡' },
   { id: 'reports', label: 'Reports', icon: '△' },
+  { id: 'accounting', label: 'Accounting', icon: '$' },
   { id: 'settings', label: 'Settings', icon: '⚙' },
 ]
 
 const activeView = ref('pos')
+const activeAccountingTab = ref<'accounts' | 'journal' | 'pl'>('accounts')
 const products = ref<Product[]>([])
 const categories = ref<Category[]>([])
 const inventory = ref<InventoryStatus[]>([])
@@ -316,10 +402,30 @@ const dashboard = ref<any>(null)
 const recentSales = ref<any[]>([])
 const topProducts = ref<any[]>([])
 const salesByCategory = ref<any[]>([])
-const settings = ref<any[]>([])
+const settings = ref<Setting[]>([])
 const dailySummary = ref<any>({})
 const dbValidation = ref('')
+const settingEdits = reactive<Record<string, string>>({})
+const savingSettingKey = ref('')
+const savingAllSettings = ref(false)
 const adjustments = reactive<Record<number, number>>({})
+const { showToast, showPrompt } = useNotifications()
+const pages = reactive({
+  recentSales: 1,
+  topProducts: 1,
+  posProducts: 1,
+  products: 1,
+  inventory: 1,
+  salesByCategory: 1,
+})
+const pageSizes = reactive({
+  recentSales: 10,
+  topProducts: 10,
+  posProducts: 24,
+  products: 10,
+  inventory: 10,
+  salesByCategory: 10,
+})
 
 const barcodeInput = ref<HTMLInputElement | null>(null)
 const barcodeQuery = ref('')
@@ -331,6 +437,7 @@ const processingPayment = ref(false)
 const saleMessage = ref('')
 const saleError = ref(false)
 const lastReceipt = ref<Receipt | null>(null)
+const printReceiptData = ref<Receipt | null>(null)
 const productFormMessage = ref('')
 const productFormError = ref(false)
 const editingProductId = ref<number | null>(null)
@@ -366,6 +473,13 @@ const filteredProducts = computed(() => {
     return matchesQuery && matchesCategory
   })
 })
+const paginate = <T,>(items: T[], page: number, pageSize: number) => items.slice((page - 1) * pageSize, page * pageSize)
+const paginatedRecentSales = computed(() => paginate(recentSales.value, pages.recentSales, pageSizes.recentSales))
+const paginatedTopProducts = computed(() => paginate(topProducts.value, pages.topProducts, pageSizes.topProducts))
+const paginatedFilteredProducts = computed(() => paginate(filteredProducts.value, pages.posProducts, pageSizes.posProducts))
+const paginatedProducts = computed(() => paginate(products.value, pages.products, pageSizes.products))
+const paginatedInventory = computed(() => paginate(inventory.value, pages.inventory, pageSizes.inventory))
+const paginatedSalesByCategory = computed(() => paginate(salesByCategory.value, pages.salesByCategory, pageSizes.salesByCategory))
 const subtotal = computed(() => cart.value.reduce((sum, item) => sum + item.product.unit_price * item.quantity, 0))
 const vat = computed(() => subtotal.value * 16 / 116)
 const total = computed(() => subtotal.value)
@@ -374,6 +488,27 @@ const change = computed(() => Math.max(0, amountReceived.value - total.value))
 const money = (value: number | null | undefined) => Number(value || 0).toFixed(2)
 const categoryName = (id: number) => categories.value.find((category) => category.id === id)?.name || 'Unassigned'
 const logout = () => emit('logout')
+const settingValue = (key: string) => settings.value.find((setting) => setting.key === key)?.value || ''
+const receiptStoreName = computed(() => settingValue('store_name') || 'Minimart POS')
+const receiptStoreAddress = computed(() => settingValue('store_address'))
+const receiptStorePhone = computed(() => settingValue('store_phone'))
+const receiptFooter = computed(() => settingValue('receipt_footer'))
+
+watch([searchQuery, selectedCategory], () => { pages.posProducts = 1 })
+watch(products, () => { pages.products = 1 })
+watch(inventory, () => { pages.inventory = 1 })
+watch(recentSales, () => { pages.recentSales = 1 })
+watch(topProducts, () => { pages.topProducts = 1 })
+watch(salesByCategory, () => { pages.salesByCategory = 1 })
+
+const closePrintPopup = () => {
+  printReceiptData.value = null
+}
+
+const printReceipt = async () => {
+  await nextTick()
+  window.print()
+}
 
 const loadProducts = async () => {
   products.value = await invoke<Product[]>('get_products', { categoryId: null })
@@ -395,20 +530,32 @@ const loadReports = async () => {
   salesByCategory.value = await invoke<any[]>('get_sales_by_category')
 }
 const loadSettings = async () => {
-  settings.value = await invoke<any[]>('get_settings')
+  settings.value = await invoke<Setting[]>('get_settings')
+  for (const setting of settings.value) {
+    settingEdits[setting.key] = setting.value || ''
+  }
 }
 const refreshAll = async () => {
   await Promise.all([loadProducts(), loadCategories(), loadInventory(), loadDashboard(), loadReports(), loadSettings()])
 }
 
 const addToCart = (product: Product, barcodeScanned?: string) => {
-  if (product.quantity_in_stock <= 0) return
+  if (product.quantity_in_stock <= 0) {
+    showToast('Out of stock', `${product.name} cannot be added to the cart.`, 'warning')
+    return
+  }
   const existingItem = cart.value.find((item) => item.product.id === product.id)
   if (existingItem) {
-    if (existingItem.quantity < product.quantity_in_stock) existingItem.quantity += 1
+    if (existingItem.quantity < product.quantity_in_stock) {
+      existingItem.quantity += 1
+      showToast('Cart updated', `${product.name} quantity increased.`, 'success', 2200)
+    } else {
+      showToast('Stock limit reached', `Only ${product.quantity_in_stock} ${product.name} available.`, 'warning')
+    }
     return
   }
   cart.value.push({ product, quantity: 1, barcodeScanned })
+  showToast('Added to cart', product.name, 'success', 2200)
 }
 
 const addBarcodeToCart = async () => {
@@ -425,6 +572,8 @@ const addBarcodeToCart = async () => {
   if (product) {
     addToCart(product, value)
     await invoke('log_barcode_scan', { productId: product.id, barcode: value }).catch(() => undefined)
+  } else {
+    showToast('Product not found', `No product matched "${value}".`, 'warning')
   }
   barcodeQuery.value = ''
   await nextTick()
@@ -444,11 +593,13 @@ const processPayment = async () => {
   if (cart.value.length === 0) {
     saleError.value = true
     saleMessage.value = 'Add at least one product to the cart.'
+    showToast('Cart is empty', saleMessage.value, 'warning')
     return
   }
   if (amountReceived.value < total.value) {
     saleError.value = true
     saleMessage.value = 'Insufficient payment amount.'
+    showToast('Payment shortfall', saleMessage.value, 'error')
     return
   }
 
@@ -461,6 +612,13 @@ const processPayment = async () => {
     }))
     const receiptSubtotal = subtotal.value
     const receiptVat = vat.value
+    const receiptNetSales = receiptSubtotal - receiptVat
+    const receiptCogs = cart.value.reduce(
+      (sum, item) => sum + (item.product.cost_price ?? item.product.unit_price) * item.quantity,
+      0,
+    )
+    const receiptProfit = receiptNetSales - receiptCogs
+    const receiptMarginPercent = receiptNetSales > 0 ? (receiptProfit / receiptNetSales) * 100 : 0
     const receiptTotal = total.value
     const receiptPaid = amountReceived.value
 
@@ -480,17 +638,31 @@ const processPayment = async () => {
       items: receiptItems,
       subtotal: receiptSubtotal,
       vat: receiptVat,
+      netSales: receiptNetSales,
+      cogs: receiptCogs,
+      profit: receiptProfit,
+      marginPercent: receiptMarginPercent,
       total: receiptTotal,
       paid: receiptPaid,
       change: completedSale.change_amount ?? Math.max(0, receiptPaid - receiptTotal),
     }
+    printReceiptData.value = lastReceipt.value
     saleMessage.value = `Sale completed. Change: KES ${money(lastReceipt.value.change)}`
+    showToast(
+      'Sale completed',
+      `Change: KES ${money(lastReceipt.value.change)} | Profit: KES ${money(lastReceipt.value.profit)} | Margin: ${money(lastReceipt.value.marginPercent)}%`,
+      'success',
+    )
+    if (lastReceipt.value.profit < 0) {
+      showToast('Loss-making sale', `Profit: KES ${money(lastReceipt.value.profit)}`, 'warning')
+    }
     cart.value = []
     amountReceived.value = 0
     await refreshAll()
   } catch (error) {
     saleError.value = true
     saleMessage.value = String(error)
+    showToast('Sale failed', String(error), 'error')
   } finally {
     processingPayment.value = false
   }
@@ -516,9 +688,11 @@ const createProduct = async () => {
     Object.assign(newProduct, { name: '', sku: '', barcode: '', unit_price: 0, cost_price: null, quantity_in_stock: 0, reorder_level: 10 })
     await Promise.all([loadProducts(), loadInventory(), loadDashboard()])
     productFormMessage.value = 'Product created.'
+    showToast('Product created', 'The product is now available in POS.', 'success')
   } catch (error) {
     productFormError.value = true
     productFormMessage.value = String(error)
+    showToast('Create product failed', String(error), 'error')
   }
 }
 
@@ -569,9 +743,11 @@ const saveProductEdit = async () => {
     editingProductId.value = null
     await Promise.all([loadProducts(), loadInventory(), loadDashboard()])
     productFormMessage.value = 'Product updated.'
+    showToast('Product updated', 'Changes have been saved.', 'success')
   } catch (error) {
     productFormError.value = true
     productFormMessage.value = String(error)
+    showToast('Update product failed', String(error), 'error')
   }
 }
 
@@ -579,7 +755,14 @@ const deleteProduct = async (product: Product) => {
   productFormMessage.value = ''
   productFormError.value = false
 
-  if (!confirm(`Delete ${product.name}?`)) return
+  const confirmed = await showPrompt({
+    title: 'Delete product?',
+    message: `Delete ${product.name}? This action cannot be undone.`,
+    confirmText: 'Delete',
+    cancelText: 'Keep',
+    type: 'danger',
+  })
+  if (!confirmed) return
 
   try {
     await invoke('delete_product', { id: product.id })
@@ -587,95 +770,186 @@ const deleteProduct = async (product: Product) => {
     if (editingProductId.value === product.id) editingProductId.value = null
     await Promise.all([loadProducts(), loadInventory(), loadDashboard()])
     productFormMessage.value = 'Product deleted.'
+    showToast('Product deleted', product.name, 'success')
   } catch (error) {
     productFormError.value = true
     productFormMessage.value = String(error)
+    showToast('Delete product failed', String(error), 'error')
   }
 }
 
 const adjustStock = async (productId: number) => {
   const quantity = adjustments[productId] || 0
-  if (!quantity) return
-  await invoke('adjust_inventory', { productId, quantity, reason: 'Manual stock adjustment' })
-  adjustments[productId] = 0
-  await Promise.all([loadProducts(), loadInventory()])
+  if (!quantity) {
+    showToast('No stock change', 'Enter a quantity before applying an adjustment.', 'warning')
+    return
+  }
+  try {
+    await invoke('adjust_inventory', { productId, quantity, reason: 'Manual stock adjustment' })
+    adjustments[productId] = 0
+    await Promise.all([loadProducts(), loadInventory()])
+    showToast('Stock adjusted', `Inventory changed by ${quantity}.`, 'success')
+  } catch (error) {
+    showToast('Stock adjustment failed', String(error), 'error')
+  }
 }
 
 const validateDb = async () => {
-  dbValidation.value = JSON.stringify(await invoke('validate_database'), null, 2)
+  try {
+    dbValidation.value = JSON.stringify(await invoke('validate_database'), null, 2)
+    showToast('Database validated', 'Validation details are shown in Settings.', 'success')
+  } catch (error) {
+    showToast('Database validation failed', String(error), 'error')
+  }
+}
+
+const saveSetting = async (key: string) => {
+  savingSettingKey.value = key
+  try {
+    await invoke('update_setting', {
+      key,
+      update: { value: settingEdits[key] ?? '' },
+    })
+    showToast('Setting saved', `${key} updated successfully.`, 'success')
+    await loadSettings()
+  } catch (error) {
+    showToast('Setting save failed', String(error), 'error')
+  } finally {
+    savingSettingKey.value = ''
+  }
+}
+
+const saveAllSettings = async () => {
+  if (settings.value.length === 0) return
+  savingAllSettings.value = true
+  try {
+    for (const setting of settings.value) {
+      await invoke('update_setting', {
+        key: setting.key,
+        update: { value: settingEdits[setting.key] ?? '' },
+      })
+    }
+    showToast('Settings saved', 'All settings have been updated.', 'success')
+    await loadSettings()
+  } catch (error) {
+    showToast('Save all failed', String(error), 'error')
+  } finally {
+    savingAllSettings.value = false
+  }
 }
 
 onMounted(async () => {
-  await refreshAll()
-  await nextTick()
-  barcodeInput.value?.focus()
+  try {
+    await refreshAll()
+    await nextTick()
+    barcodeInput.value?.focus()
+  } catch (error) {
+    showToast('App data failed to load', String(error), 'error')
+  }
 })
 </script>
 
 <style scoped>
-.app-shell { min-height: 100vh; display: grid; grid-template-columns: 240px 1fr; background: #eef2f5; color: #17202a; }
-.sidebar { background: #111827; color: white; padding: 18px; display: flex; flex-direction: column; gap: 18px; }
-.brand { display: grid; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid #374151; }
-.brand span { color: #cbd5e1; font-size: 0.9rem; }
+.app-shell { min-height: 100vh; display: grid; grid-template-columns: 240px 1fr; background: var(--color-black); color: var(--color-black); }
+.sidebar { background: var(--color-black); color: var(--color-white); padding: 18px; display: flex; flex-direction: column; gap: 18px; border-right: 1px solid rgba(212, 175, 55, 0.35); }
+.brand { display: grid; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid rgba(212, 175, 55, 0.35); }
+.brand strong { color: var(--color-gold); }
+.brand span { color: var(--color-cream); font-size: 0.9rem; }
 .nav-tabs { display: grid; gap: 8px; }
 .nav-tabs button, .logout-btn, .view-header button, .scan-row button, .checkout button, .product-form button, td button { min-height: 38px; border: 0; border-radius: 6px; cursor: pointer; font-weight: 700; }
-.nav-tabs button { display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: transparent; color: #d1d5db; text-align: left; }
-.nav-tabs button.active, .nav-tabs button:hover { background: #2563eb; color: white; }
-.logout-btn { margin-top: auto; background: #b91c1c; color: white; }
-.workspace { min-width: 0; overflow: auto; }
+.nav-tabs button { display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: transparent; color: var(--color-cream); text-align: left; border: 1px solid transparent; }
+.nav-tabs button.active, .nav-tabs button:hover { background: var(--color-gold); color: var(--color-black); border-color: var(--color-gold); }
+.logout-btn { margin-top: auto; background: transparent; color: var(--color-gold); border: 1px solid var(--color-gold); }
+.logout-btn:hover { background: var(--color-gold); color: var(--color-black); }
+.workspace { min-width: 0; overflow: auto; background: var(--color-cream); }
 .view { padding: 20px; display: grid; gap: 18px; }
 .view-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .view-header h1 { font-size: 1.6rem; }
-.view-header button, .scan-row button, .checkout button, .product-form button, td button { background: #2563eb; color: white; padding: 0 14px; }
-.secondary-btn { background: #64748b !important; color: white; }
-.danger-btn { background: #b91c1c !important; color: white; }
+.view-header button, .scan-row button, .checkout button, .product-form button, td button { background: var(--color-black); color: var(--color-gold); padding: 0 14px; border: 1px solid var(--color-black); }
+.view-header button:hover, .scan-row button:hover, .checkout button:hover, .product-form button:hover, td button:hover { background: var(--color-gold); color: var(--color-black); border-color: var(--color-gold); }
+.checkout button:disabled { opacity: 0.5; cursor: not-allowed; }
+.secondary-btn { background: var(--color-white) !important; color: var(--color-black) !important; border: 1px solid var(--color-gold) !important; }
+.danger-btn { background: var(--color-danger) !important; color: var(--color-white) !important; border-color: var(--color-danger) !important; }
 .pos-view { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
-.sale-surface, .cart-panel, .panel { background: white; border: 1px solid #d9e2ec; border-radius: 8px; padding: 16px; }
+.sale-surface, .cart-panel, .panel { background: var(--color-white); border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; box-shadow: 0 12px 30px rgba(10, 10, 10, 0.06); }
 .scan-row, .search-controls, .product-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
 .search-controls { grid-template-columns: 1fr 220px; margin: 12px 0; }
-input, select { min-height: 40px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 10px; background: white; color: #111827; }
+input, select { min-height: 40px; border: 1px solid #d7c58b; border-radius: 6px; padding: 0 10px; background: var(--color-white); color: var(--color-black); }
+input:focus, select:focus { outline: none; border-color: var(--color-gold); box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18); }
 .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
-.product-tile { min-height: 132px; display: grid; gap: 6px; text-align: left; padding: 12px; border: 1px solid #d9e2ec; background: #f8fafc; border-radius: 8px; cursor: pointer; }
+.product-tile { min-height: 132px; display: grid; gap: 6px; text-align: left; padding: 12px; border: 1px solid var(--color-border); background: #fffaf0; border-radius: 8px; cursor: pointer; color: var(--color-black); }
+.product-tile:hover:not(:disabled) { border-color: var(--color-gold); box-shadow: 0 10px 22px rgba(212, 175, 55, 0.16); }
 .product-tile:disabled { opacity: 0.5; cursor: not-allowed; }
-.product-tile em { font-style: normal; font-weight: 800; color: #047857; }
-.low, .warning strong, .out_of_stock { color: #b91c1c; }
+.product-tile em { font-style: normal; font-weight: 800; color: var(--color-gold-dark); }
+.low, .warning strong, .out_of_stock { color: var(--color-danger); }
 .cart-panel { position: sticky; top: 0; display: grid; gap: 14px; }
 .cart-list { display: grid; gap: 10px; max-height: 42vh; overflow: auto; }
-.cart-item { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
+.cart-item { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px; }
 .cart-item div:first-child { display: grid; gap: 4px; }
-.cart-item span, .empty-state { color: #64748b; }
+.cart-item span, .empty-state { color: var(--color-muted); }
 .qty-controls { display: flex; align-items: center; gap: 6px; }
-.qty-controls button { width: 30px; height: 30px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; }
-.qty-controls .danger { color: #b91c1c; }
-.totals { display: grid; gap: 8px; border-top: 2px solid #e5e7eb; padding-top: 12px; }
+.qty-controls button { width: 30px; height: 30px; border: 1px solid var(--color-border); background: var(--color-white); color: var(--color-black); border-radius: 6px; }
+.qty-controls .danger { color: var(--color-danger); }
+.totals { display: grid; gap: 8px; border-top: 2px solid var(--color-border); padding-top: 12px; }
 .totals div { display: flex; justify-content: space-between; }
 .totals .grand { font-size: 1.2rem; }
 .checkout { display: grid; gap: 10px; }
-.change { color: #047857; font-weight: 800; }
-.receipt-panel { display: grid; gap: 10px; border-top: 2px solid #e5e7eb; padding-top: 14px; }
+.change { color: var(--color-gold-dark); font-weight: 800; }
+.receipt-panel { display: grid; gap: 10px; border-top: 2px solid var(--color-border); padding-top: 14px; }
 .receipt-panel header, .receipt-line, .receipt-totals div { display: flex; justify-content: space-between; gap: 12px; }
+.receipt-panel header { align-items: center; }
+.receipt-panel header > div { display: grid; gap: 3px; }
 .receipt-panel h3 { margin: 0; font-size: 1rem; }
-.receipt-panel header span, .receipt-line span, .receipt-totals span { color: #64748b; }
-.receipt-line { border-bottom: 1px solid #eef2f5; padding-bottom: 8px; }
+.receipt-panel header span, .receipt-line span, .receipt-totals span { color: var(--color-muted); }
+.receipt-line { border-bottom: 1px solid var(--color-border); padding-bottom: 8px; }
 .receipt-totals { display: grid; gap: 6px; }
 .receipt-totals .grand { font-size: 1.1rem; }
+.loss { color: var(--color-danger); font-weight: 900; }
+.loss-note { margin: 0; color: var(--color-danger); font-weight: 800; }
+.icon-btn { width: 38px; height: 38px; display: inline-grid; place-items: center; border: 1px solid var(--color-gold); border-radius: 6px; background: var(--color-black); color: var(--color-gold); cursor: pointer; }
+.icon-btn:hover { background: var(--color-gold); color: var(--color-black); }
+.icon-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.close-btn { font-size: 1rem; font-weight: 900; }
+.print-popup { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: rgba(10, 10, 10, 0.7); }
+.print-dialog { width: min(440px, 100%); max-height: calc(100vh - 40px); overflow: auto; display: grid; gap: 14px; padding: 16px; background: var(--color-white); border: 1px solid var(--color-gold); border-radius: 8px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35); }
+.print-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
+.print-actions > div:first-child { display: grid; gap: 3px; }
+.print-actions span { color: var(--color-muted); font-size: 0.88rem; }
+.print-actions > div:last-child { display: flex; gap: 8px; }
+.print-receipt { display: grid; gap: 14px; padding: 14px; background: #fffaf0; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-black); }
+.print-receipt > header { display: grid; gap: 4px; text-align: center; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
+.print-receipt > header strong { font-size: 1.15rem; }
+.print-receipt > header span, .print-receipt > header small { color: var(--color-muted); }
+.print-receipt > header small { display: block; }
+.print-items, .print-totals { display: grid; gap: 8px; }
+.print-line, .print-totals div { display: flex; justify-content: space-between; gap: 12px; }
+.print-line { padding-bottom: 8px; border-bottom: 1px solid var(--color-border); }
+.print-line span, .print-totals span { color: var(--color-muted); }
+.print-totals { padding-top: 4px; }
+.print-totals .grand { padding-top: 8px; border-top: 2px solid var(--color-gold); font-size: 1.12rem; }
+.print-footer { padding-top: 10px; border-top: 1px solid var(--color-border); text-align: center; color: var(--color-muted); font-size: 0.9rem; }
 .metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 12px; }
-.metric { background: white; border: 1px solid #d9e2ec; border-radius: 8px; padding: 16px; display: grid; gap: 8px; }
-.metric span { color: #64748b; }
+.metric { background: var(--color-white); border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; display: grid; gap: 8px; }
+.metric span { color: var(--color-muted); }
 .metric strong { font-size: 1.6rem; }
 .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.accounting-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.accounting-tabs button { min-height: 38px; border-radius: 6px; border: 1px solid var(--color-gold); background: var(--color-white); color: var(--color-black); padding: 0 12px; cursor: pointer; font-weight: 800; }
+.accounting-tabs button.active, .accounting-tabs button:hover { background: var(--color-black); color: var(--color-gold); border-color: var(--color-black); }
 .product-form { grid-template-columns: repeat(4, minmax(140px, 1fr)) auto; }
-.edit-form { border-top: 1px solid #e5e7eb; padding-top: 14px; }
-.form-message { margin: -8px 0 0; color: #047857; font-weight: 800; }
-.form-message.error { color: #b91c1c; }
+.edit-form { border-top: 1px solid var(--color-border); padding-top: 14px; }
+.form-message { margin: -8px 0 0; color: var(--color-gold-dark); font-weight: 800; }
+.form-message.error { color: var(--color-danger); }
 table { width: 100%; border-collapse: collapse; }
-th, td { padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: middle; }
+th, td { padding: 10px; border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: middle; }
+th { color: var(--color-muted); }
 td input { width: 90px; margin-right: 6px; }
 .action-cell { display: flex; gap: 6px; flex-wrap: wrap; }
 .status { text-transform: capitalize; font-weight: 800; }
-.in_stock { color: #047857; }
-.low_stock { color: #b45309; }
-pre { white-space: pre-wrap; background: #111827; color: #e5e7eb; padding: 14px; border-radius: 8px; }
+.in_stock { color: var(--color-gold-dark); }
+.low_stock { color: #8a641d; }
+pre { white-space: pre-wrap; background: var(--color-black); color: var(--color-gold-soft); padding: 14px; border-radius: 8px; }
 
 @media (max-width: 980px) {
   .app-shell { grid-template-columns: 1fr; }
@@ -684,5 +958,38 @@ pre { white-space: pre-wrap; background: #111827; color: #e5e7eb; padding: 14px;
   .pos-view, .split-grid { grid-template-columns: 1fr; }
   .cart-panel { position: static; }
   .metrics-grid, .product-form { grid-template-columns: 1fr 1fr; }
+}
+
+@media print {
+  .app-shell,
+  .print-actions,
+  :global(.toast-stack),
+  :global(.prompt-backdrop) {
+    display: none !important;
+  }
+
+  .print-popup {
+    position: static;
+    inset: auto;
+    display: block;
+    padding: 0;
+    background: var(--color-white);
+  }
+
+  .print-dialog {
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .print-receipt {
+    border: 0;
+    border-radius: 0;
+    background: var(--color-white);
+  }
 }
 </style>

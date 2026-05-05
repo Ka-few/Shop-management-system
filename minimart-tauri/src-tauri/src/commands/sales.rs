@@ -1,5 +1,6 @@
 use crate::db::DbPool;
 use crate::models::{Sale, NewSale, SaleItem, NewSaleItem};
+use crate::commands::accounting;
 use rusqlite::{params, Result};
 use tauri::State;
 use std::sync::Arc;
@@ -134,10 +135,19 @@ pub async fn complete_sale(
         }
 
         let change_amount = payment_amount - total;
+        let vat = total * 16.0 / 116.0;
+        let cogs: f64 = tx.query_row(
+            "SELECT COALESCE(SUM(si.quantity * COALESCE(p.cost_price, p.unit_price, 0)), 0)
+             FROM sale_items si
+             JOIN products p ON p.id = si.product_id
+             WHERE si.sale_id = ?",
+            [sale_id],
+            |row| row.get(0)
+        ).map_err(|e| format!("COGS calculation error: {}", e))?;
 
         tx.execute(
             "UPDATE sales SET total_amount = ?, payment_method = ?, change_amount = ?, status = ?, updated_at = ? WHERE id = ?",
-            params![total, payment_method, change_amount, "completed", Utc::now().to_rfc3339(), sale_id]
+            params![total, payment_method.as_str(), change_amount, "completed", Utc::now().to_rfc3339(), sale_id]
         ).map_err(|e| format!("Sale completion error: {}", e))?;
 
         let sale_items: Vec<(i32, i32)> = {
@@ -173,6 +183,8 @@ pub async fn complete_sale(
         }
 
         tx.commit().map_err(|e| format!("Transaction commit error: {}", e))?;
+
+        accounting::post_sale_accounting(&mut conn, sale_id, &payment_method, total, vat, cogs)?;
     }
 
     get_sale(pool, sale_id).await

@@ -7,3 +7,4 @@ pub mod barcode;
 pub mod dashboard;
 pub mod settings;
 pub mod database;
+pub mod accounting;

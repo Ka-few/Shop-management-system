@@ -39,6 +39,7 @@ fn run_migrations(pool: &DbPool) -> Result<()> {
     let migrations = vec![
         include_str!("../../migrations/001_initial_schema.sql"),
         include_str!("../../migrations/002_data_migration.sql"),
+        include_str!("../../migrations/003_accounting.sql"),
     ];
 
     for migration in migrations {

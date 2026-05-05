@@ -268,3 +268,80 @@ pub struct InventoryItem {
     pub unit_cost: f64,
     pub total_value: f64,
 }
+
+// Accounting models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Account {
+    pub id: i32,
+    pub code: String,
+    pub name: String,
+    pub account_type: String,
+    pub parent_id: Option<i32>,
+    pub is_active: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NewAccount {
+    pub code: String,
+    pub name: String,
+    pub account_type: String,
+    pub parent_id: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateAccount {
+    pub code: String,
+    pub name: String,
+    pub account_type: String,
+    pub parent_id: Option<i32>,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JournalLine {
+    pub id: Option<i32>,
+    pub journal_entry_id: Option<i32>,
+    pub account_id: i32,
+    pub account_code: Option<String>,
+    pub account_name: Option<String>,
+    pub account_type: Option<String>,
+    pub debit: f64,
+    pub credit: f64,
+    pub memo: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JournalEntry {
+    pub id: i32,
+    pub date: String,
+    pub reference: Option<String>,
+    pub description: String,
+    pub status: String,
+    pub source_type: Option<String>,
+    pub source_id: Option<i32>,
+    pub reversed_entry_id: Option<i32>,
+    pub is_system_generated: bool,
+    pub total_debit: f64,
+    pub total_credit: f64,
+    pub lines: Vec<JournalLine>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NewJournalEntry {
+    pub date: String,
+    pub reference: Option<String>,
+    pub description: String,
+    pub lines: Vec<NewJournalLine>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NewJournalLine {
+    pub account_id: i32,
+    pub debit: f64,
+    pub credit: f64,
+    pub memo: Option<String>,
+}

@@ -1,6 +1,7 @@
 use crate::db::DbPool;
+use crate::commands::accounting;
 use crate::models::InventoryStatus;
-use rusqlite::Result;
+use rusqlite::{params, Result};
 use tauri::State;
 use std::sync::Arc;
 use chrono::Utc;
@@ -52,7 +53,7 @@ pub async fn adjust_inventory(
     quantity: i32,
     reason: String,
 ) -> Result<(), String> {
-    let conn = crate::db::get_connection(&pool)
+    let mut conn = crate::db::get_connection(&pool)
         .map_err(|e| format!("Database connection error: {}", e))?;
 
     // Begin transaction
@@ -62,7 +63,7 @@ pub async fn adjust_inventory(
     // Update product stock
     let result = conn.execute(
         "UPDATE products SET quantity_in_stock = quantity_in_stock + ?, updated_at = ? WHERE id = ?",
-        rusqlite::params![quantity, Utc::now().to_rfc3339(), product_id]
+        params![quantity, Utc::now().to_rfc3339(), product_id]
     );
 
     if let Err(e) = result {
@@ -74,7 +75,7 @@ pub async fn adjust_inventory(
     // Log the transaction
     let transaction_result = conn.execute(
         "INSERT INTO inventory_transactions (product_id, transaction_type, quantity, notes, created_at) VALUES (?, ?, ?, ?, ?)",
-        rusqlite::params![
+        params![
             product_id,
             "adjustment",
             quantity,
@@ -88,10 +89,19 @@ pub async fn adjust_inventory(
             .map_err(|e| format!("Transaction rollback error: {}", e))?;
         return Err(format!("Transaction logging error: {}", e));
     }
+    let transaction_id = conn.last_insert_rowid() as i32;
 
     // Commit transaction
     conn.execute("COMMIT", [])
         .map_err(|e| format!("Transaction commit error: {}", e))?;
+
+    accounting::post_inventory_adjustment_accounting(
+        &mut conn,
+        transaction_id,
+        product_id,
+        quantity,
+        &reason,
+    )?;
 
     Ok(())
 }

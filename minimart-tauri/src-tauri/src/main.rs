@@ -92,7 +92,17 @@ fn main() {
             // Database commands
             commands::database::backup_database_cmd,
             commands::database::get_database_stats,
-            commands::database::validate_database
+            commands::database::validate_database,
+
+            // Accounting commands
+            commands::accounting::get_accounts,
+            commands::accounting::create_account,
+            commands::accounting::update_account,
+            commands::accounting::delete_account,
+            commands::accounting::get_journal_entries,
+            commands::accounting::create_manual_journal_entry,
+            commands::accounting::reverse_journal_entry,
+            commands::accounting::get_profit_and_loss
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
