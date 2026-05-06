@@ -6,7 +6,7 @@
         <span>{{ currentUser?.username }}</span>
       </div>
       <nav class="nav-tabs">
-        <button v-for="tab in tabs" :key="tab.id" :class="{ active: activeView === tab.id }" @click="activeView = tab.id">
+        <button v-for="tab in visibleTabs" :key="tab.id" :class="{ active: activeView === tab.id }" @click="activeView = tab.id">
           <span>{{ tab.icon }}</span>{{ tab.label }}
         </button>
       </nav>
@@ -151,7 +151,7 @@
           <input v-model="newProduct.barcode" placeholder="Barcode optional" />
           <button>Create Product</button>
         </form>
-        <form v-if="editingProductId" class="product-form edit-form" @submit.prevent="saveProductEdit">
+        <form v-if="editingProductId" ref="productEditForm" class="product-form edit-form" @submit.prevent="saveProductEdit">
           <input v-model="editProduct.name" placeholder="Name" required />
           <input v-model="editProduct.sku" placeholder="SKU" required />
           <select v-model.number="editProduct.category_id" required>
@@ -253,11 +253,15 @@
         <header class="view-header">
           <h1>Settings</h1>
           <div class="settings-actions">
-            <button @click="saveAllSettings" :disabled="savingAllSettings">{{ savingAllSettings ? 'Saving...' : 'Save All' }}</button>
-            <button @click="validateDb">Validate DB</button>
+            <button v-if="activeSettingsTab === 'app'" @click="saveAllSettings" :disabled="savingAllSettings">{{ savingAllSettings ? 'Saving...' : 'Save All' }}</button>
+            <button v-if="activeSettingsTab === 'app'" @click="validateDb">Validate DB</button>
           </div>
         </header>
-        <section class="panel">
+        <nav class="accounting-tabs">
+          <button :class="{ active: activeSettingsTab === 'app' }" @click="activeSettingsTab = 'app'">App Settings</button>
+          <button :class="{ active: activeSettingsTab === 'users' }" @click="activeSettingsTab = 'users'">Users</button>
+        </nav>
+        <section v-if="activeSettingsTab === 'app'" class="panel">
           <table>
             <thead>
               <tr><th>Key</th><th>Value</th><th>Description</th><th>Action</th></tr>
@@ -285,7 +289,41 @@
             </tbody>
           </table>
         </section>
-        <pre v-if="dbValidation">{{ dbValidation }}</pre>
+        <pre v-if="activeSettingsTab === 'app' && dbValidation">{{ dbValidation }}</pre>
+        <section v-if="activeSettingsTab === 'users'" class="panel">
+          <form ref="userEditForm" class="user-form" @submit.prevent="saveUser">
+            <input v-model="userForm.username" placeholder="Username" required />
+            <input v-model="userForm.email" type="email" placeholder="Email" required />
+            <select v-model="userForm.role">
+              <option value="user">User</option>
+              <option value="staff">Staff</option>
+              <option value="teller">Teller</option>
+              <option value="admin">Admin</option>
+            </select>
+            <input v-model="userForm.password" type="password" :placeholder="editingUserId ? 'New password optional' : 'Password'" :required="!editingUserId" />
+            <button :disabled="savingUser">{{ savingUser ? 'Saving...' : editingUserId ? 'Update User' : 'Create User' }}</button>
+            <button v-if="editingUserId" type="button" class="secondary-btn" @click="cancelUserEdit">Cancel</button>
+          </form>
+          <p v-if="userFormMessage" class="form-message" :class="{ error: userFormError }">{{ userFormMessage }}</p>
+          <table>
+            <thead>
+              <tr><th>Username</th><th>Email</th><th>Role</th><th>Created</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="user in users" :key="user.id">
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td><span class="role-pill">{{ user.role }}</span></td>
+                <td>{{ shortDate(user.created_at) }}</td>
+                <td class="action-cell">
+                  <button type="button" @click="startUserEdit(user)">Edit</button>
+                  <button type="button" class="danger-btn" :disabled="user.id === currentUser?.id" @click="deleteUserAccount(user)">Delete</button>
+                </td>
+              </tr>
+              <tr v-if="users.length === 0"><td colspan="5">No users found.</td></tr>
+            </tbody>
+          </table>
+        </section>
       </section>
     </main>
 
@@ -345,7 +383,7 @@ import ChartOfAccountsTab from './accounting/ChartOfAccountsTab.vue'
 import JournalEntriesTab from './accounting/JournalEntriesTab.vue'
 import ProfitAndLossTab from './accounting/ProfitAndLossTab.vue'
 
-interface User { id: number; username: string; email: string; role: string }
+interface User { id: number; username: string; email: string; role: string; created_at?: string; updated_at?: string | null }
 interface Category { id: number; name: string; icon: string | null; description: string | null }
 interface Product {
   id: number
@@ -379,7 +417,7 @@ interface Receipt {
   change: number
 }
 
-defineProps<{ currentUser: User | null }>()
+const props = defineProps<{ currentUser: User | null }>()
 const emit = defineEmits<{ logout: [] }>()
 
 const tabs = [
@@ -394,6 +432,7 @@ const tabs = [
 
 const activeView = ref('pos')
 const activeAccountingTab = ref<'accounts' | 'journal' | 'pl'>('accounts')
+const activeSettingsTab = ref<'app' | 'users'>('app')
 const products = ref<Product[]>([])
 const categories = ref<Category[]>([])
 const inventory = ref<InventoryStatus[]>([])
@@ -403,11 +442,13 @@ const recentSales = ref<any[]>([])
 const topProducts = ref<any[]>([])
 const salesByCategory = ref<any[]>([])
 const settings = ref<Setting[]>([])
+const users = ref<User[]>([])
 const dailySummary = ref<any>({})
 const dbValidation = ref('')
 const settingEdits = reactive<Record<string, string>>({})
 const savingSettingKey = ref('')
 const savingAllSettings = ref(false)
+const savingUser = ref(false)
 const adjustments = reactive<Record<number, number>>({})
 const { showToast, showPrompt } = useNotifications()
 const pages = reactive({
@@ -428,6 +469,8 @@ const pageSizes = reactive({
 })
 
 const barcodeInput = ref<HTMLInputElement | null>(null)
+const productEditForm = ref<HTMLFormElement | null>(null)
+const userEditForm = ref<HTMLFormElement | null>(null)
 const barcodeQuery = ref('')
 const searchQuery = ref('')
 const selectedCategory = ref('')
@@ -461,7 +504,19 @@ const editProduct = reactive({
   quantity_in_stock: 0,
   reorder_level: 10,
 })
+const editingUserId = ref<number | null>(null)
+const userForm = reactive({
+  username: '',
+  email: '',
+  role: 'user',
+  password: '',
+})
+const userFormMessage = ref('')
+const userFormError = ref(false)
 
+const currentUser = computed(() => props.currentUser)
+const isAdmin = computed(() => props.currentUser?.role === 'admin')
+const visibleTabs = computed(() => isAdmin.value ? tabs : tabs.filter((tab) => tab.id === 'pos'))
 const filteredProducts = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   return products.value.filter((product) => {
@@ -489,6 +544,7 @@ const money = (value: number | null | undefined) => Number(value || 0).toFixed(2
 const categoryName = (id: number) => categories.value.find((category) => category.id === id)?.name || 'Unassigned'
 const logout = () => emit('logout')
 const settingValue = (key: string) => settings.value.find((setting) => setting.key === key)?.value || ''
+const shortDate = (value?: string) => value ? new Date(value).toLocaleDateString() : '-'
 const receiptStoreName = computed(() => settingValue('store_name') || 'Minimart POS')
 const receiptStoreAddress = computed(() => settingValue('store_address'))
 const receiptStorePhone = computed(() => settingValue('store_phone'))
@@ -500,6 +556,9 @@ watch(inventory, () => { pages.inventory = 1 })
 watch(recentSales, () => { pages.recentSales = 1 })
 watch(topProducts, () => { pages.topProducts = 1 })
 watch(salesByCategory, () => { pages.salesByCategory = 1 })
+watch(isAdmin, (admin) => {
+  if (!admin) activeView.value = 'pos'
+}, { immediate: true })
 
 const closePrintPopup = () => {
   printReceiptData.value = null
@@ -535,8 +594,16 @@ const loadSettings = async () => {
     settingEdits[setting.key] = setting.value || ''
   }
 }
+const loadUsers = async () => {
+  if (!isAdmin.value || !props.currentUser) return
+  users.value = await invoke<User[]>('get_users', { adminUserId: props.currentUser.id })
+}
 const refreshAll = async () => {
-  await Promise.all([loadProducts(), loadCategories(), loadInventory(), loadDashboard(), loadReports(), loadSettings()])
+  if (!isAdmin.value) {
+    await Promise.all([loadProducts(), loadCategories(), loadSettings()])
+    return
+  }
+  await Promise.all([loadProducts(), loadCategories(), loadInventory(), loadDashboard(), loadReports(), loadSettings(), loadUsers()])
 }
 
 const addToCart = (product: Product, barcodeScanned?: string) => {
@@ -710,6 +777,7 @@ const startEdit = (product: Product) => {
   })
   productFormMessage.value = ''
   productFormError.value = false
+  nextTick(() => productEditForm.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
 }
 
 const cancelEdit = () => {
@@ -838,6 +906,106 @@ const saveAllSettings = async () => {
   }
 }
 
+const resetUserForm = () => {
+  editingUserId.value = null
+  Object.assign(userForm, {
+    username: '',
+    email: '',
+    role: 'user',
+    password: '',
+  })
+}
+
+const startUserEdit = (user: User) => {
+  editingUserId.value = user.id
+  Object.assign(userForm, {
+    username: user.username,
+    email: user.email,
+    role: user.role,
+    password: '',
+  })
+  userFormMessage.value = ''
+  userFormError.value = false
+  nextTick(() => userEditForm.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+
+const cancelUserEdit = () => {
+  resetUserForm()
+  userFormMessage.value = ''
+  userFormError.value = false
+}
+
+const saveUser = async () => {
+  if (!props.currentUser) return
+  userFormMessage.value = ''
+  userFormError.value = false
+  savingUser.value = true
+
+  try {
+    if (editingUserId.value) {
+      await invoke('update_user', {
+        adminUserId: props.currentUser.id,
+        userId: editingUserId.value,
+        updates: {
+          username: userForm.username,
+          email: userForm.email,
+          role: userForm.role,
+          password: userForm.password.trim() ? userForm.password : null,
+        },
+      })
+      userFormMessage.value = 'User updated.'
+      showToast('User updated', `${userForm.username} has been updated.`, 'success')
+    } else {
+      await invoke('create_user', {
+        adminUserId: props.currentUser.id,
+        user: {
+          username: userForm.username,
+          email: userForm.email,
+          role: userForm.role,
+          password: userForm.password,
+        },
+      })
+      userFormMessage.value = 'User created.'
+      showToast('User created', `${userForm.username} can now log in.`, 'success')
+    }
+    resetUserForm()
+    await loadUsers()
+  } catch (error) {
+    userFormError.value = true
+    userFormMessage.value = String(error)
+    showToast('User save failed', String(error), 'error')
+  } finally {
+    savingUser.value = false
+  }
+}
+
+const deleteUserAccount = async (user: User) => {
+  if (!props.currentUser) return
+
+  const confirmed = await showPrompt({
+    title: 'Delete user?',
+    message: `Delete ${user.username}? This action cannot be undone.`,
+    confirmText: 'Delete',
+    cancelText: 'Keep',
+    type: 'danger',
+  })
+  if (!confirmed) return
+
+  try {
+    await invoke('delete_user', {
+      adminUserId: props.currentUser.id,
+      userId: user.id,
+    })
+    if (editingUserId.value === user.id) resetUserForm()
+    await loadUsers()
+    showToast('User deleted', user.username, 'success')
+  } catch (error) {
+    userFormError.value = true
+    userFormMessage.value = String(error)
+    showToast('Delete user failed', String(error), 'error')
+  }
+}
+
 onMounted(async () => {
   try {
     await refreshAll()
@@ -856,7 +1024,7 @@ onMounted(async () => {
 .brand strong { color: var(--color-gold); }
 .brand span { color: var(--color-cream); font-size: 0.9rem; }
 .nav-tabs { display: grid; gap: 8px; }
-.nav-tabs button, .logout-btn, .view-header button, .scan-row button, .checkout button, .product-form button, td button { min-height: 38px; border: 0; border-radius: 6px; cursor: pointer; font-weight: 700; }
+.nav-tabs button, .logout-btn, .view-header button, .scan-row button, .checkout button, .product-form button, .user-form button, td button { min-height: 38px; border: 0; border-radius: 6px; cursor: pointer; font-weight: 700; }
 .nav-tabs button { display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: transparent; color: var(--color-cream); text-align: left; border: 1px solid transparent; }
 .nav-tabs button.active, .nav-tabs button:hover { background: var(--color-gold); color: var(--color-black); border-color: var(--color-gold); }
 .logout-btn { margin-top: auto; background: transparent; color: var(--color-gold); border: 1px solid var(--color-gold); }
@@ -865,14 +1033,14 @@ onMounted(async () => {
 .view { padding: 20px; display: grid; gap: 18px; }
 .view-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .view-header h1 { font-size: 1.6rem; }
-.view-header button, .scan-row button, .checkout button, .product-form button, td button { background: var(--color-black); color: var(--color-gold); padding: 0 14px; border: 1px solid var(--color-black); }
-.view-header button:hover, .scan-row button:hover, .checkout button:hover, .product-form button:hover, td button:hover { background: var(--color-gold); color: var(--color-black); border-color: var(--color-gold); }
+.view-header button, .scan-row button, .checkout button, .product-form button, .user-form button, td button { background: var(--color-black); color: var(--color-gold); padding: 0 14px; border: 1px solid var(--color-black); }
+.view-header button:hover, .scan-row button:hover, .checkout button:hover, .product-form button:hover, .user-form button:hover, td button:hover { background: var(--color-gold); color: var(--color-black); border-color: var(--color-gold); }
 .checkout button:disabled { opacity: 0.5; cursor: not-allowed; }
 .secondary-btn { background: var(--color-white) !important; color: var(--color-black) !important; border: 1px solid var(--color-gold) !important; }
 .danger-btn { background: var(--color-danger) !important; color: var(--color-white) !important; border-color: var(--color-danger) !important; }
 .pos-view { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
 .sale-surface, .cart-panel, .panel { background: var(--color-white); border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; box-shadow: 0 12px 30px rgba(10, 10, 10, 0.06); }
-.scan-row, .search-controls, .product-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.scan-row, .search-controls, .product-form, .user-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
 .search-controls { grid-template-columns: 1fr 220px; margin: 12px 0; }
 input, select { min-height: 40px; border: 1px solid #d7c58b; border-radius: 6px; padding: 0 10px; background: var(--color-white); color: var(--color-black); }
 input:focus, select:focus { outline: none; border-color: var(--color-gold); box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18); }
@@ -938,6 +1106,7 @@ input:focus, select:focus { outline: none; border-color: var(--color-gold); box-
 .accounting-tabs button { min-height: 38px; border-radius: 6px; border: 1px solid var(--color-gold); background: var(--color-white); color: var(--color-black); padding: 0 12px; cursor: pointer; font-weight: 800; }
 .accounting-tabs button.active, .accounting-tabs button:hover { background: var(--color-black); color: var(--color-gold); border-color: var(--color-black); }
 .product-form { grid-template-columns: repeat(4, minmax(140px, 1fr)) auto; }
+.user-form { grid-template-columns: repeat(4, minmax(140px, 1fr)) auto auto; margin-bottom: 14px; }
 .edit-form { border-top: 1px solid var(--color-border); padding-top: 14px; }
 .form-message { margin: -8px 0 0; color: var(--color-gold-dark); font-weight: 800; }
 .form-message.error { color: var(--color-danger); }
@@ -947,6 +1116,7 @@ th { color: var(--color-muted); }
 td input { width: 90px; margin-right: 6px; }
 .action-cell { display: flex; gap: 6px; flex-wrap: wrap; }
 .status { text-transform: capitalize; font-weight: 800; }
+.role-pill { display: inline-block; min-width: 68px; padding: 4px 8px; border-radius: 6px; background: #fffaf0; border: 1px solid var(--color-border); text-transform: capitalize; font-weight: 800; text-align: center; }
 .in_stock { color: var(--color-gold-dark); }
 .low_stock { color: #8a641d; }
 pre { white-space: pre-wrap; background: var(--color-black); color: var(--color-gold-soft); padding: 14px; border-radius: 8px; }
@@ -957,7 +1127,7 @@ pre { white-space: pre-wrap; background: var(--color-black); color: var(--color-
   .nav-tabs { grid-template-columns: repeat(3, 1fr); }
   .pos-view, .split-grid { grid-template-columns: 1fr; }
   .cart-panel { position: static; }
-  .metrics-grid, .product-form { grid-template-columns: 1fr 1fr; }
+  .metrics-grid, .product-form, .user-form { grid-template-columns: 1fr 1fr; }
 }
 
 @media print {

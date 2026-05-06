@@ -45,6 +45,10 @@ fn main() {
             // Auth commands
             commands::auth::login,
             commands::auth::get_current_user,
+            commands::auth::get_users,
+            commands::auth::create_user,
+            commands::auth::update_user,
+            commands::auth::delete_user,
 
             // Product commands
             commands::products::get_products,
