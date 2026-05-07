@@ -15,6 +15,8 @@ Desktop POS app built with Tauri 2, Vue 3, TypeScript, Rust, and SQLite.
 - Dashboard and reports views
 - Toast notifications and custom prompt dialogs
 - Black, white, and gold styling
+- Startup splash screen with minimart storefront icon
+- Per-machine/user SQLite database initialized on first launch
 
 ## Commands
 
@@ -22,7 +24,9 @@ Desktop POS app built with Tauri 2, Vue 3, TypeScript, Rust, and SQLite.
 npm install
 npm run tauri dev
 npm run build
-npm run tauri build
+npm run package
+npm run package:deb
+npm run package:windows
 ```
 
 For Rust-only validation:
@@ -30,6 +34,30 @@ For Rust-only validation:
 ```bash
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
+
+## Packaging
+
+Linux packages are built from Linux:
+
+```bash
+npm run package
+```
+
+`npm run package` is the default Linux packaging command and is equivalent to `npm run package:deb`.
+
+The `.deb` output is written under `src-tauri/target/release/bundle/deb/`, for example `Minimart POS_0.1.0_amd64.deb`.
+
+Windows installers can be cross-built from Linux when the `x86_64-pc-windows-gnu` Rust target, MinGW, and NSIS are installed:
+
+```bash
+npm run package:windows
+```
+
+The Windows output is written under `src-tauri/target/x86_64-pc-windows-gnu/release/bundle/nsis/` as an `.exe` installer.
+
+Tauri cross-platform Windows builds are unsigned by default from Linux. For signed production installers, build/sign on Windows or configure a custom Windows signing command.
+
+The installer does not bundle a prebuilt SQLite database. On first launch, the app creates `minimart.db` in the operating system app-data directory and runs migrations/default seed data there. That gives each PC an independent database and avoids install-time write-permission errors.
 
 ## Layout
 

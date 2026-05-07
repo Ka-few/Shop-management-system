@@ -25,14 +25,30 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["deb"],
+    "publisher": "njoroge",
+    "category": "Business",
+    "shortDescription": "Minimart POS System - Kenyan Retail Management",
+    "longDescription": "A desktop point-of-sale and shop management system for Kenyan minimarts. Includes sales, product management, inventory adjustment, reports, receipt printing, VAT display, and a per-machine SQLite database initialized on first launch.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    },
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "perMachine",
+        "displayLanguageSelector": false
+      }
+    }
   },
   "plugins": {
     "updater": {

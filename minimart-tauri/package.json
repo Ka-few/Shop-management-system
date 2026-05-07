@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "package": "tauri build --bundles deb",
+    "package:deb": "tauri build --bundles deb",
+    "package:windows": "tauri build --target x86_64-pc-windows-gnu --bundles nsis"
   },
   "dependencies": {
     "vue": "^3.5.13",

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import Login from './components/Login.vue'
 import POS from './components/POS.vue'
 import NotificationHost from './components/NotificationHost.vue'
+import SplashScreen from './components/SplashScreen.vue'
 import { useNotifications } from './composables/useNotifications'
 
 interface User {
@@ -16,6 +17,7 @@ interface User {
 
 const currentUser = ref<User | null>(null)
 const isLoggedIn = ref(false)
+const showSplash = ref(true)
 const { showToast } = useNotifications()
 
 const handleLoginSuccess = (user: User) => {
@@ -29,11 +31,18 @@ const handleLogout = () => {
   isLoggedIn.value = false
   showToast('Logged out', 'Your session has ended.', 'info')
 }
+
+onMounted(() => {
+  window.setTimeout(() => {
+    showSplash.value = false
+  }, 1600)
+})
 </script>
 
 <template>
   <div id="app">
-    <Login v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
+    <SplashScreen v-if="showSplash" />
+    <Login v-else-if="!isLoggedIn" @login-success="handleLoginSuccess" />
     <POS v-else :current-user="currentUser" @logout="handleLogout" />
     <NotificationHost />
   </div>
