@@ -47,8 +47,8 @@ CREATE TABLE IF NOT EXISTS products (
   description TEXT,
   unit_price REAL NOT NULL,
   cost_price REAL,
-  quantity_in_stock INTEGER DEFAULT 0,
-  reorder_level INTEGER DEFAULT 10,
+  quantity_in_stock REAL DEFAULT 0,
+  reorder_level REAL DEFAULT 10,
   expiry_date DATE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS sale_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   sale_id INTEGER NOT NULL,
   product_id INTEGER NOT NULL,
-  quantity INTEGER NOT NULL,
+  quantity REAL NOT NULL,
   unit_price REAL NOT NULL,
   barcode_scanned TEXT, -- track which barcode was scanned
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS inventory_transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   product_id INTEGER NOT NULL,
   transaction_type TEXT NOT NULL, -- 'purchase', 'sale', 'adjustment', 'return'
-  quantity INTEGER NOT NULL,
+  quantity REAL NOT NULL,
   reference_id INTEGER, -- sale_id, purchase_order_id, etc.
   notes TEXT,
   created_by INTEGER,

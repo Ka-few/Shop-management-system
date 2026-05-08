@@ -1,9 +1,9 @@
 use crate::db::DbPool;
 use crate::models::BarcodeScan;
-use rusqlite::Result;
-use tauri::State;
-use std::sync::Arc;
 use chrono::Utc;
+use rusqlite::Result;
+use std::sync::Arc;
+use tauri::State;
 // Removed: use barcode::{Barcode, BarcodeFormat, Symbology};
 
 #[tauri::command]
@@ -16,11 +16,13 @@ pub async fn generate_barcode(
         .map_err(|e| format!("Database connection error: {}", e))?;
 
     // Get product info
-    let (sku, current_barcode): (String, Option<String>) = conn.query_row(
-        "SELECT sku, barcode FROM products WHERE id = ?",
-        [product_id],
-        |row| Ok((row.get(0)?, row.get(1)?))
-    ).map_err(|e| format!("Product not found: {}", e))?;
+    let (sku, current_barcode): (String, Option<String>) = conn
+        .query_row(
+            "SELECT sku, barcode FROM products WHERE id = ?",
+            [product_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| format!("Product not found: {}", e))?;
 
     // Use existing barcode or generate new one
     let barcode_data = if current_barcode.is_some() {
@@ -37,8 +39,9 @@ pub async fn generate_barcode(
     if current_barcode.is_none() {
         conn.execute(
             "UPDATE products SET barcode = ?, barcode_format = ? WHERE id = ?",
-            [&barcode_data, &format, &product_id.to_string()]
-        ).map_err(|e| format!("Barcode update error: {}", e))?;
+            [&barcode_data, &format, &product_id.to_string()],
+        )
+        .map_err(|e| format!("Barcode update error: {}", e))?;
     }
 
     Ok(barcode_image)
@@ -55,12 +58,9 @@ pub async fn log_barcode_scan(
 
     conn.execute(
         "INSERT INTO barcode_scans (product_id, barcode, scan_time) VALUES (?, ?, ?)",
-        [
-            &product_id.to_string(),
-            &barcode,
-            &Utc::now().to_rfc3339(),
-        ]
-    ).map_err(|e| format!("Barcode scan logging error: {}", e))?;
+        [&product_id.to_string(), &barcode, &Utc::now().to_rfc3339()],
+    )
+    .map_err(|e| format!("Barcode scan logging error: {}", e))?;
 
     Ok(())
 }
@@ -101,21 +101,27 @@ fn generate_barcode_from_sku(sku: &str, format: &str) -> Result<String, String> 
         "EAN13" => {
             // Generate a valid EAN13 barcode
             // For simplicity, we'll use the SKU as base and pad/calculate check digit
-            let base = format!("{:0>12}", sku.chars().filter(|c| c.is_numeric()).collect::<String>());
+            let base = format!(
+                "{:0>12}",
+                sku.chars().filter(|c| c.is_numeric()).collect::<String>()
+            );
             let check_digit = calculate_ean13_check_digit(&base)?;
             Ok(format!("{}{}", &base[..12], check_digit))
-        },
+        }
         "EAN8" => {
             // Generate EAN8 barcode
-            let base = format!("{:0>7}", sku.chars().filter(|c| c.is_numeric()).collect::<String>());
+            let base = format!(
+                "{:0>7}",
+                sku.chars().filter(|c| c.is_numeric()).collect::<String>()
+            );
             let check_digit = calculate_ean8_check_digit(&base)?;
             Ok(format!("{}{}", &base[..7], check_digit))
-        },
+        }
         "CODE128" => {
             // For CODE128, we can use the SKU directly
             Ok(sku.to_string())
-        },
-        _ => Err(format!("Unsupported barcode format: {}", format))
+        }
+        _ => Err(format!("Unsupported barcode format: {}", format)),
     }
 }
 
@@ -174,7 +180,7 @@ fn generate_barcode_image(barcode_data: &str, format: &str) -> Result<String, St
     );
 
     // Convert to base64 (simplified)
-    use base64::{Engine as _, engine::general_purpose};
+    use base64::{engine::general_purpose, Engine as _};
     let base64_data = general_purpose::STANDARD.encode(svg_content.as_bytes());
     Ok(format!("data:image/svg+xml;base64,{}", base64_data))
 }

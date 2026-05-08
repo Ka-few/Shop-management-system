@@ -1,39 +1,39 @@
 use crate::db::DbPool;
 use crate::models::DashboardStats;
+use chrono::{Duration, Utc};
 use rusqlite::Result;
-use tauri::State;
 use std::sync::Arc;
-use chrono::{Utc, Duration};
+use tauri::State;
 
 #[tauri::command]
-pub async fn get_dashboard_stats(
-    pool: State<'_, Arc<DbPool>>,
-) -> Result<DashboardStats, String> {
+pub async fn get_dashboard_stats(pool: State<'_, Arc<DbPool>>) -> Result<DashboardStats, String> {
     let conn = crate::db::get_connection(&pool)
         .map_err(|e| format!("Database connection error: {}", e))?;
 
     let now = Utc::now();
 
     // Total sales
-    let total_sales: f64 = conn.query_row(
-        "SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status = 'completed'",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(0.0);
+    let total_sales: f64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status = 'completed'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0.0);
 
     // Total products
-    let total_products: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM products",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(0);
+    let total_products: i32 = conn
+        .query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0))
+        .unwrap_or(0);
 
     // Low stock items (below reorder level)
-    let low_stock_items: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM products WHERE quantity_in_stock <= reorder_level",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(0);
+    let low_stock_items: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM products WHERE quantity_in_stock <= reorder_level",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
 
     // Today's sales
     let today_start = now.date_naive().and_hms_opt(0, 0, 0).unwrap();
@@ -83,7 +83,8 @@ pub async fn get_recent_sales(
         limit_value
     );
 
-    let sales = conn.prepare(&query)
+    let sales = conn
+        .prepare(&query)
         .map_err(|e| format!("Query preparation error: {}", e))?
         .query_map([], |row| {
             Ok(serde_json::json!({
@@ -115,12 +116,13 @@ pub async fn get_top_products(
         limit_value
     );
 
-    let products = conn.prepare(&query)
+    let products = conn
+        .prepare(&query)
         .map_err(|e| format!("Query preparation error: {}", e))?
         .query_map([], |row| {
             Ok(serde_json::json!({
                 "name": row.get::<_, String>(0)?,
-                "total_quantity": row.get::<_, i32>(1)?,
+                "total_quantity": row.get::<_, f64>(1)?,
                 "total_revenue": row.get::<_, f64>(2)?
             }))
         })

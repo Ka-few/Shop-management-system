@@ -1,9 +1,9 @@
 use crate::db::DbPool;
-use crate::models::{Product, NewProduct, UpdateProduct};
-use rusqlite::{params_from_iter, Result};
-use tauri::State;
-use std::sync::Arc;
+use crate::models::{NewProduct, Product, UpdateProduct};
 use chrono::Utc;
+use rusqlite::{params_from_iter, Result};
+use std::sync::Arc;
+use tauri::State;
 
 const PRODUCT_IN_USE_DELETE_ERROR: &str = "Products already used in sales or inventory history cannot be deleted. Set stock to 0 instead.";
 
@@ -25,29 +25,31 @@ pub async fn get_products(
 
     query.push_str(" ORDER BY name");
 
-    let mut stmt = conn.prepare(&query)
+    let mut stmt = conn
+        .prepare(&query)
         .map_err(|e| format!("Query preparation error: {}", e))?;
 
     let param_refs: Vec<&str> = params.iter().map(|s| s.as_str()).collect();
-    let product_iter = stmt.query_map(params_from_iter(param_refs), |row| {
-        Ok(Product {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            category_id: row.get(2)?,
-            sku: row.get(3)?,
-            barcode: row.get(4)?,
-            barcode_format: row.get(5)?,
-            description: row.get(6)?,
-            unit_price: row.get(7)?,
-            cost_price: row.get(8)?,
-            quantity_in_stock: row.get(9)?,
-            reorder_level: row.get(10)?,
-            expiry_date: row.get(11)?,
-            created_at: row.get(12)?,
-            updated_at: row.get(13)?,
+    let product_iter = stmt
+        .query_map(params_from_iter(param_refs), |row| {
+            Ok(Product {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                category_id: row.get(2)?,
+                sku: row.get(3)?,
+                barcode: row.get(4)?,
+                barcode_format: row.get(5)?,
+                description: row.get(6)?,
+                unit_price: row.get(7)?,
+                cost_price: row.get(8)?,
+                quantity_in_stock: row.get(9)?,
+                reorder_level: row.get(10)?,
+                expiry_date: row.get(11)?,
+                created_at: row.get(12)?,
+                updated_at: row.get(13)?,
+            })
         })
-    })
-    .map_err(|e| format!("Query execution error: {}", e))?;
+        .map_err(|e| format!("Query execution error: {}", e))?;
 
     let mut products = Vec::new();
     for product in product_iter {
@@ -58,10 +60,7 @@ pub async fn get_products(
 }
 
 #[tauri::command]
-pub async fn get_product(
-    pool: State<'_, Arc<DbPool>>,
-    id: i32,
-) -> Result<Product, String> {
+pub async fn get_product(pool: State<'_, Arc<DbPool>>, id: i32) -> Result<Product, String> {
     let conn = crate::db::get_connection(&pool)
         .map_err(|e| format!("Database connection error: {}", e))?;
 
@@ -146,8 +145,8 @@ pub async fn create_product(
             product.description,
             product.unit_price,
             product.cost_price,
-            product.quantity_in_stock.unwrap_or(0),
-            product.reorder_level.unwrap_or(10),
+            product.quantity_in_stock.unwrap_or(0.0),
+            product.reorder_level.unwrap_or(10.0),
             product.expiry_date,
             now,
             now,
@@ -169,12 +168,15 @@ pub async fn update_product(
     let conn = crate::db::get_connection(&pool)
         .map_err(|e| format!("Database connection error: {}", e))?;
 
-    let previous_stock: Option<i32> = if updates.quantity_in_stock.is_some() {
-        Some(conn.query_row(
-            "SELECT quantity_in_stock FROM products WHERE id = ?",
-            [id],
-            |row| row.get(0),
-        ).map_err(|e| format!("Product stock lookup error: {}", e))?)
+    let previous_stock: Option<f64> = if updates.quantity_in_stock.is_some() {
+        Some(
+            conn.query_row(
+                "SELECT quantity_in_stock FROM products WHERE id = ?",
+                [id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Product stock lookup error: {}", e))?,
+        )
     } else {
         None
     };
@@ -245,7 +247,7 @@ pub async fn update_product(
 
     if let (Some(old_stock), Some(new_stock)) = (previous_stock, updates.quantity_in_stock) {
         let delta = new_stock - old_stock;
-        if delta != 0 {
+        if delta.abs() > f64::EPSILON {
             conn.execute(
                 "INSERT INTO inventory_transactions (product_id, transaction_type, quantity, notes, created_at) VALUES (?, ?, ?, ?, ?)",
                 rusqlite::params![
@@ -264,25 +266,25 @@ pub async fn update_product(
 }
 
 #[tauri::command]
-pub async fn delete_product(
-    pool: State<'_, Arc<DbPool>>,
-    id: i32,
-) -> Result<(), String> {
+pub async fn delete_product(pool: State<'_, Arc<DbPool>>, id: i32) -> Result<(), String> {
     let conn = crate::db::get_connection(&pool)
         .map_err(|e| format!("Database connection error: {}", e))?;
 
-    let product_exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM products WHERE id = ?)",
-        [id],
-        |row| row.get(0),
-    ).map_err(|e| format!("Product lookup error: {}", e))?;
+    let product_exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM products WHERE id = ?)",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Product lookup error: {}", e))?;
 
     if !product_exists {
         return Err("Product not found.".to_string());
     }
 
-    let has_history: bool = conn.query_row(
-        "SELECT EXISTS(
+    let has_history: bool = conn
+        .query_row(
+            "SELECT EXISTS(
             SELECT 1 FROM sale_items WHERE product_id = ?
             UNION ALL
             SELECT 1 FROM inventory_transactions WHERE product_id = ?
@@ -291,9 +293,10 @@ pub async fn delete_product(
             UNION ALL
             SELECT 1 FROM purchase_order_items WHERE product_id = ?
         )",
-        rusqlite::params![id, id, id, id],
-        |row| row.get(0),
-    ).map_err(|e| format!("Product history lookup error: {}", e))?;
+            rusqlite::params![id, id, id, id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Product history lookup error: {}", e))?;
 
     if has_history {
         return Err(PRODUCT_IN_USE_DELETE_ERROR.to_string());

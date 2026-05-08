@@ -1,6 +1,6 @@
-use crate::db::{DbPool, backup_database, get_db_stats, validate_database_integrity};
-use tauri::State;
+use crate::db::{backup_database, get_db_stats, validate_database_integrity, DbPool};
 use std::sync::Arc;
+use tauri::State;
 
 #[tauri::command]
 pub async fn backup_database_cmd(
@@ -11,30 +11,21 @@ pub async fn backup_database_cmd(
     // In a real app, you'd want to get the actual database path
     let db_path = "minimart.db".to_string(); // This should be configurable
 
-    backup_database(&db_path, &backup_path)
-        .map_err(|e| format!("Database backup failed: {}", e))
+    backup_database(&db_path, &backup_path).map_err(|e| format!("Database backup failed: {}", e))
 }
 
 #[tauri::command]
-pub async fn get_database_stats(
-    pool: State<'_, Arc<DbPool>>,
-) -> Result<serde_json::Value, String> {
-    get_db_stats(&pool)
-        .map_err(|e| format!("Failed to get database stats: {}", e))
+pub async fn get_database_stats(pool: State<'_, Arc<DbPool>>) -> Result<serde_json::Value, String> {
+    get_db_stats(&pool).map_err(|e| format!("Failed to get database stats: {}", e))
 }
 
 #[tauri::command]
-pub async fn validate_database(
-    pool: State<'_, Arc<DbPool>>,
-) -> Result<serde_json::Value, String> {
-    validate_database_integrity(&pool)
-        .map_err(|e| format!("Database validation failed: {}", e))
+pub async fn validate_database(pool: State<'_, Arc<DbPool>>) -> Result<serde_json::Value, String> {
+    validate_database_integrity(&pool).map_err(|e| format!("Database validation failed: {}", e))
 }
 
 #[tauri::command]
-pub async fn reset_database(
-    pool: State<'_, Arc<DbPool>>,
-) -> Result<(), String> {
+pub async fn reset_database(pool: State<'_, Arc<DbPool>>) -> Result<(), String> {
     let conn = crate::db::get_connection(&pool)
         .map_err(|e| format!("Database connection error: {}", e))?;
 
@@ -59,8 +50,11 @@ pub async fn reset_database(
 
     // Reset auto-increment counters
     for table in &tables_to_clear {
-        conn.execute(&format!("DELETE FROM sqlite_sequence WHERE name = '{}'", table), [])
-            .ok(); // Ignore errors for tables without auto-increment
+        conn.execute(
+            &format!("DELETE FROM sqlite_sequence WHERE name = '{}'", table),
+            [],
+        )
+        .ok(); // Ignore errors for tables without auto-increment
     }
 
     // Re-initialize with default data

@@ -1,14 +1,12 @@
 use crate::db::DbPool;
 use crate::models::{Category, NewCategory};
-use rusqlite::Result;
-use tauri::State;
-use std::sync::Arc;
 use chrono::Utc;
+use rusqlite::Result;
+use std::sync::Arc;
+use tauri::State;
 
 #[tauri::command]
-pub async fn get_categories(
-    pool: State<'_, Arc<DbPool>>,
-) -> Result<Vec<Category>, String> {
+pub async fn get_categories(pool: State<'_, Arc<DbPool>>) -> Result<Vec<Category>, String> {
     let conn = crate::db::get_connection(&pool)
         .map_err(|e| format!("Database connection error: {}", e))?;
 

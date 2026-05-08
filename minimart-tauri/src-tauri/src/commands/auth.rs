@@ -1,11 +1,11 @@
 use crate::db::DbPool;
 use crate::models::{LoginRequest, LoginResponse, NewUser, UpdateUser, User};
-use rusqlite::{params, OptionalExtension, Result};
-use tauri::State;
-use std::sync::Arc;
-use jsonwebtoken::{encode, Header, EncodingKey};
 use bcrypt::{hash, verify, DEFAULT_COST};
-use chrono::{Utc, Duration};
+use chrono::{Duration, Utc};
+use jsonwebtoken::{encode, EncodingKey, Header};
+use rusqlite::{params, OptionalExtension, Result};
+use std::sync::Arc;
+use tauri::State;
 
 const JWT_SECRET: &str = "your-secret-key-change-this-in-production";
 const ALLOWED_ROLES: [&str; 4] = ["admin", "user", "staff", "teller"];
@@ -22,7 +22,10 @@ fn map_user_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<User> {
 }
 
 fn normalize_role(role: Option<String>) -> Result<String, String> {
-    let value = role.unwrap_or_else(|| "user".to_string()).trim().to_lowercase();
+    let value = role
+        .unwrap_or_else(|| "user".to_string())
+        .trim()
+        .to_lowercase();
     if ALLOWED_ROLES.contains(&value.as_str()) {
         Ok(value)
     } else {
@@ -31,11 +34,14 @@ fn normalize_role(role: Option<String>) -> Result<String, String> {
 }
 
 fn require_admin(conn: &rusqlite::Connection, admin_user_id: i32) -> Result<(), String> {
-    let role: Option<String> = conn.query_row(
-        "SELECT role FROM users WHERE id = ?",
-        [admin_user_id],
-        |row| row.get(0),
-    ).optional().map_err(|e| format!("Admin lookup failed: {}", e))?;
+    let role: Option<String> = conn
+        .query_row(
+            "SELECT role FROM users WHERE id = ?",
+            [admin_user_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| format!("Admin lookup failed: {}", e))?;
 
     match role.as_deref() {
         Some("admin") => Ok(()),
@@ -60,11 +66,13 @@ pub async fn login(
     ).map_err(|e| format!("User not found: {}", e))?;
 
     // Verify password
-    let password_hash: String = conn.query_row(
-        "SELECT password FROM users WHERE id = ?",
-        [user.id],
-        |row| row.get(0)
-    ).map_err(|e| format!("Password retrieval error: {}", e))?;
+    let password_hash: String = conn
+        .query_row(
+            "SELECT password FROM users WHERE id = ?",
+            [user.id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Password retrieval error: {}", e))?;
 
     let is_valid = verify(&request.password, &password_hash)
         .map_err(|e| format!("Password verification error: {}", e))?;
@@ -89,25 +97,25 @@ pub async fn login(
     let token = encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(JWT_SECRET.as_ref())
-    ).map_err(|e| format!("Token generation error: {}", e))?;
+        &EncodingKey::from_secret(JWT_SECRET.as_ref()),
+    )
+    .map_err(|e| format!("Token generation error: {}", e))?;
 
     Ok(LoginResponse { token, user })
 }
 
 #[tauri::command]
-pub async fn get_current_user(
-    pool: State<'_, Arc<DbPool>>,
-    user_id: i32,
-) -> Result<User, String> {
+pub async fn get_current_user(pool: State<'_, Arc<DbPool>>, user_id: i32) -> Result<User, String> {
     let conn = crate::db::get_connection(&pool)
         .map_err(|e| format!("Database connection error: {}", e))?;
 
-    let user = conn.query_row(
-        "SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?",
-        [user_id],
-        map_user_row
-    ).map_err(|e| format!("User retrieval error: {}", e))?;
+    let user = conn
+        .query_row(
+            "SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?",
+            [user_id],
+            map_user_row,
+        )
+        .map_err(|e| format!("User retrieval error: {}", e))?;
 
     Ok(user)
 }
@@ -121,11 +129,14 @@ pub async fn get_users(
         .map_err(|e| format!("Database connection error: {}", e))?;
     require_admin(&conn, admin_user_id)?;
 
-    let mut stmt = conn.prepare(
-        "SELECT id, username, email, role, created_at, updated_at FROM users ORDER BY username"
-    ).map_err(|e| format!("User query error: {}", e))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, username, email, role, created_at, updated_at FROM users ORDER BY username",
+        )
+        .map_err(|e| format!("User query error: {}", e))?;
 
-    let users = stmt.query_map([], map_user_row)
+    let users = stmt
+        .query_map([], map_user_row)
         .map_err(|e| format!("User query error: {}", e))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("User row error: {}", e))?;
@@ -156,8 +167,8 @@ pub async fn create_user(
     }
 
     let role = normalize_role(user.role)?;
-    let hashed_password = hash(user.password, DEFAULT_COST)
-        .map_err(|e| format!("Password hashing error: {}", e))?;
+    let hashed_password =
+        hash(user.password, DEFAULT_COST).map_err(|e| format!("Password hashing error: {}", e))?;
     let now = Utc::now().to_rfc3339();
 
     conn.execute(
@@ -181,7 +192,11 @@ pub async fn update_user(
     require_admin(&conn, admin_user_id)?;
 
     let existing = get_user_by_id(&conn, user_id)?;
-    let username = updates.username.unwrap_or(existing.username).trim().to_string();
+    let username = updates
+        .username
+        .unwrap_or(existing.username)
+        .trim()
+        .to_string();
     let email = updates.email.unwrap_or(existing.email).trim().to_string();
     let role = normalize_role(updates.role.or(Some(existing.role)))?;
 
@@ -194,17 +209,19 @@ pub async fn update_user(
     if user_id == admin_user_id && role != "admin" {
         return Err("You cannot remove admin access from your own account".to_string());
     }
-    let current_role: String = conn.query_row(
-        "SELECT role FROM users WHERE id = ?",
-        [user_id],
-        |row| row.get(0),
-    ).map_err(|e| format!("User lookup error: {}", e))?;
+    let current_role: String = conn
+        .query_row("SELECT role FROM users WHERE id = ?", [user_id], |row| {
+            row.get(0)
+        })
+        .map_err(|e| format!("User lookup error: {}", e))?;
     if current_role == "admin" && role != "admin" {
-        let admin_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM users WHERE role = 'admin'",
-            [],
-            |row| row.get(0),
-        ).map_err(|e| format!("Admin count error: {}", e))?;
+        let admin_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM users WHERE role = 'admin'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Admin count error: {}", e))?;
         if admin_count <= 1 {
             return Err("At least one admin account is required".to_string());
         }
@@ -228,7 +245,8 @@ pub async fn update_user(
     conn.execute(
         "UPDATE users SET username = ?, email = ?, role = ?, updated_at = ? WHERE id = ?",
         params![username, email, role, Utc::now().to_rfc3339(), user_id],
-    ).map_err(|e| format!("User update error: {}", e))?;
+    )
+    .map_err(|e| format!("User update error: {}", e))?;
 
     get_user_by_id(&conn, user_id)
 }
@@ -247,16 +265,18 @@ pub async fn delete_user(
         return Err("You cannot delete your own admin account".to_string());
     }
 
-    let admin_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM users WHERE role = 'admin'",
-        [],
-        |row| row.get(0),
-    ).map_err(|e| format!("Admin count error: {}", e))?;
-    let deleted_user_role: String = conn.query_row(
-        "SELECT role FROM users WHERE id = ?",
-        [user_id],
-        |row| row.get(0),
-    ).map_err(|e| format!("User lookup error: {}", e))?;
+    let admin_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM users WHERE role = 'admin'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Admin count error: {}", e))?;
+    let deleted_user_role: String = conn
+        .query_row("SELECT role FROM users WHERE id = ?", [user_id], |row| {
+            row.get(0)
+        })
+        .map_err(|e| format!("User lookup error: {}", e))?;
 
     if deleted_user_role == "admin" && admin_count <= 1 {
         return Err("At least one admin account is required".to_string());
@@ -284,5 +304,6 @@ fn get_user_by_id(conn: &rusqlite::Connection, user_id: i32) -> Result<User, Str
         "SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?",
         [user_id],
         map_user_row,
-    ).map_err(|e| format!("User retrieval error: {}", e))
+    )
+    .map_err(|e| format!("User retrieval error: {}", e))
 }

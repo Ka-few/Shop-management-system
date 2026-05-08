@@ -46,7 +46,7 @@
               <tbody>
                 <tr v-for="product in paginatedTopProducts" :key="product.name">
                   <td>{{ product.name }}</td>
-                  <td>{{ product.total_quantity }} sold</td>
+                  <td>{{ quantityLabel(product.total_quantity) }} sold</td>
                   <td>KES {{ money(product.total_revenue) }}</td>
                 </tr>
                 <tr v-if="topProducts.length === 0"><td colspan="3">No product sales yet.</td></tr>
@@ -91,7 +91,7 @@
               <span>{{ product.sku }}</span>
               <em>KES {{ money(product.unit_price) }}</em>
               <small :class="{ low: product.quantity_in_stock <= product.reorder_level }">
-                Stock {{ product.quantity_in_stock }}
+                Stock {{ quantityLabel(product.quantity_in_stock) }}
               </small>
             </button>
           </div>
@@ -103,13 +103,23 @@
           <div class="cart-list">
             <p v-if="cart.length === 0" class="empty-state">No items in cart.</p>
             <div v-for="(item, index) in cart" :key="item.product.id" class="cart-item">
-              <div>
+              <div class="cart-item-summary">
                 <strong>{{ item.product.name }}</strong>
-                <span>KES {{ money(item.product.unit_price) }} x {{ item.quantity }}</span>
+                <span>KES {{ money(item.product.unit_price) }} x {{ quantityLabel(item.quantity) }} = KES {{ money(lineTotal(item)) }}</span>
+              </div>
+              <div class="cart-entry-controls">
+                <label>
+                  <span>Qty</span>
+                  <input :value="quantityLabel(item.quantity)" type="number" min="0.01" step="0.01" @input="setQuantityFromInput(index, $event)" />
+                </label>
+                <label>
+                  <span>KES</span>
+                  <input :value="money(lineTotal(item))" type="text" inputmode="decimal" @input="setLineTotalFromInput(index, $event)" />
+                </label>
               </div>
               <div class="qty-controls">
                 <button @click="updateQuantity(index, item.quantity - 1)">-</button>
-                <b>{{ item.quantity }}</b>
+                <b>{{ quantityLabel(item.quantity) }}</b>
                 <button @click="updateQuantity(index, item.quantity + 1)">+</button>
                 <button class="danger" @click="removeFromCart(index)">x</button>
               </div>
@@ -146,8 +156,8 @@
           </select>
           <input v-model.number="newProduct.unit_price" type="number" min="0" step="0.01" placeholder="Price" required />
           <input v-model.number="newProduct.cost_price" type="number" min="0" step="0.01" placeholder="Cost" />
-          <input v-model.number="newProduct.quantity_in_stock" type="number" min="0" placeholder="Initial stock" />
-          <input v-model.number="newProduct.reorder_level" type="number" min="0" placeholder="Reorder" />
+          <input v-model.number="newProduct.quantity_in_stock" type="number" min="0" step="0.01" placeholder="Initial stock" />
+          <input v-model.number="newProduct.reorder_level" type="number" min="0" step="0.01" placeholder="Reorder" />
           <input v-model="newProduct.barcode" placeholder="Barcode optional" />
           <button>Create Product</button>
         </form>
@@ -159,8 +169,8 @@
           </select>
           <input v-model.number="editProduct.unit_price" type="number" min="0" step="0.01" placeholder="Price" required />
           <input v-model.number="editProduct.cost_price" type="number" min="0" step="0.01" placeholder="Cost" />
-          <input v-model.number="editProduct.quantity_in_stock" type="number" min="0" placeholder="Stock" />
-          <input v-model.number="editProduct.reorder_level" type="number" min="0" placeholder="Reorder" />
+          <input v-model.number="editProduct.quantity_in_stock" type="number" min="0" step="0.01" placeholder="Stock" />
+          <input v-model.number="editProduct.reorder_level" type="number" min="0" step="0.01" placeholder="Reorder" />
           <input v-model="editProduct.barcode" placeholder="Barcode optional" />
           <button>Save</button>
           <button type="button" class="secondary-btn" @click="cancelEdit">Cancel</button>
@@ -176,7 +186,7 @@
                 <td>{{ product.barcode || '-' }}</td>
                 <td>{{ categoryName(product.category_id) }}</td>
                 <td>KES {{ money(product.unit_price) }}</td>
-                <td>{{ product.quantity_in_stock }}</td>
+                <td>{{ quantityLabel(product.quantity_in_stock) }}</td>
                 <td class="action-cell">
                   <button @click="startEdit(product)">Edit</button>
                   <button class="danger-btn" @click="deleteProduct(product)">Delete</button>
@@ -196,11 +206,11 @@
             <tbody>
               <tr v-for="item in paginatedInventory" :key="item.product_id">
                 <td>{{ item.product_name }}</td>
-                <td>{{ item.current_stock }}</td>
-                <td>{{ item.reorder_level }}</td>
+                <td>{{ quantityLabel(item.current_stock) }}</td>
+                <td>{{ quantityLabel(item.reorder_level) }}</td>
                 <td><span class="status" :class="item.status">{{ item.status.replace('_', ' ') }}</span></td>
                 <td>
-                  <input v-model.number="adjustments[item.product_id]" type="number" />
+                  <input v-model.number="adjustments[item.product_id]" type="number" step="0.01" />
                   <button @click="adjustStock(item.product_id)">Apply</button>
                 </td>
               </tr>
@@ -214,7 +224,7 @@
         <header class="view-header"><h1>Reports</h1><button @click="loadReports">Refresh</button></header>
         <div class="metrics-grid">
           <div class="metric"><span>Sales Today</span><strong>{{ dailySummary.sale_count ?? 0 }}</strong></div>
-          <div class="metric"><span>Items Sold</span><strong>{{ dailySummary.items_sold ?? 0 }}</strong></div>
+          <div class="metric"><span>Items Sold</span><strong>{{ quantityLabel(dailySummary.items_sold ?? 0) }}</strong></div>
           <div class="metric"><span>Revenue</span><strong>KES {{ money(dailySummary.total_sales) }}</strong></div>
         </div>
         <section class="panel">
@@ -356,7 +366,7 @@
           </header>
           <div class="print-items">
             <div v-for="item in printReceiptData.items" :key="item.name" class="print-line">
-              <span>{{ item.name }} x {{ item.quantity }}</span>
+              <span>{{ item.name }} x {{ quantityLabel(item.quantity) }}</span>
               <strong>KES {{ money(item.lineTotal) }}</strong>
             </div>
           </div>
@@ -535,12 +545,18 @@ const paginatedFilteredProducts = computed(() => paginate(filteredProducts.value
 const paginatedProducts = computed(() => paginate(products.value, pages.products, pageSizes.products))
 const paginatedInventory = computed(() => paginate(inventory.value, pages.inventory, pageSizes.inventory))
 const paginatedSalesByCategory = computed(() => paginate(salesByCategory.value, pages.salesByCategory, pageSizes.salesByCategory))
-const subtotal = computed(() => cart.value.reduce((sum, item) => sum + item.product.unit_price * item.quantity, 0))
+const lineTotal = (item: CartItem) => item.product.unit_price * item.quantity
+const subtotal = computed(() => cart.value.reduce((sum, item) => sum + lineTotal(item), 0))
 const vat = computed(() => subtotal.value * 16 / 116)
 const total = computed(() => subtotal.value)
 const change = computed(() => Math.max(0, amountReceived.value - total.value))
 
 const money = (value: number | null | undefined) => Number(value || 0).toFixed(2)
+const quantityLabel = (value: number | null | undefined) => {
+  const numericValue = Number(value || 0)
+  return numericValue.toFixed(3).replace(/\.?0+$/, '')
+}
+const normalizeQuantity = (value: number) => Math.round(value * 1000) / 1000
 const categoryName = (id: number) => categories.value.find((category) => category.id === id)?.name || 'Unassigned'
 const logout = () => emit('logout')
 const settingValue = (key: string) => settings.value.find((setting) => setting.key === key)?.value || ''
@@ -614,10 +630,10 @@ const addToCart = (product: Product, barcodeScanned?: string) => {
   const existingItem = cart.value.find((item) => item.product.id === product.id)
   if (existingItem) {
     if (existingItem.quantity < product.quantity_in_stock) {
-      existingItem.quantity += 1
+      existingItem.quantity = normalizeQuantity(Math.min(existingItem.quantity + 1, product.quantity_in_stock))
       showToast('Cart updated', `${product.name} quantity increased.`, 'success', 2200)
     } else {
-      showToast('Stock limit reached', `Only ${product.quantity_in_stock} ${product.name} available.`, 'warning')
+      showToast('Stock limit reached', `Only ${quantityLabel(product.quantity_in_stock)} ${product.name} available.`, 'warning')
     }
     return
   }
@@ -648,8 +664,28 @@ const addBarcodeToCart = async () => {
 }
 
 const updateQuantity = (index: number, quantity: number) => {
-  if (quantity <= 0) cart.value.splice(index, 1)
-  else if (quantity <= cart.value[index].product.quantity_in_stock) cart.value[index].quantity = quantity
+  const item = cart.value[index]
+  if (!item) return
+  if (quantity <= 0) {
+    cart.value.splice(index, 1)
+    return
+  }
+  if (quantity <= item.product.quantity_in_stock) {
+    item.quantity = normalizeQuantity(quantity)
+  } else {
+    showToast('Stock limit reached', `Only ${quantityLabel(item.product.quantity_in_stock)} ${item.product.name} available.`, 'warning')
+  }
+}
+const setQuantityFromInput = (index: number, event: Event) => {
+  const quantity = Number((event.target as HTMLInputElement).value)
+  if (Number.isFinite(quantity)) updateQuantity(index, quantity)
+}
+const setLineTotalFromInput = (index: number, event: Event) => {
+  const item = cart.value[index]
+  if (!item || item.product.unit_price <= 0) return
+  const amount = Number((event.target as HTMLInputElement).value)
+  if (!Number.isFinite(amount)) return
+  updateQuantity(index, amount / item.product.unit_price)
 }
 const removeFromCart = (index: number) => cart.value.splice(index, 1)
 
@@ -675,7 +711,7 @@ const processPayment = async () => {
     const receiptItems = cart.value.map((item) => ({
       name: item.product.name,
       quantity: item.quantity,
-      lineTotal: item.product.unit_price * item.quantity,
+      lineTotal: lineTotal(item),
     }))
     const receiptSubtotal = subtotal.value
     const receiptVat = vat.value
@@ -1052,9 +1088,13 @@ input:focus, select:focus { outline: none; border-color: var(--color-gold); box-
 .low, .warning strong, .out_of_stock { color: var(--color-danger); }
 .cart-panel { position: sticky; top: 0; display: grid; gap: 14px; }
 .cart-list { display: grid; gap: 10px; max-height: 42vh; overflow: auto; }
-.cart-item { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px; }
-.cart-item div:first-child { display: grid; gap: 4px; }
+.cart-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px 12px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px; }
+.cart-item-summary { grid-column: 1 / -1; display: grid; gap: 4px; min-width: 0; }
+.cart-item-summary strong, .cart-item-summary span { overflow-wrap: anywhere; }
 .cart-item span, .empty-state { color: var(--color-muted); }
+.cart-entry-controls { display: grid; gap: 6px; }
+.cart-entry-controls label { display: grid; grid-template-columns: 42px 1fr; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 800; color: var(--color-muted); }
+.cart-entry-controls input { min-height: 30px; width: 100%; padding: 0 8px; }
 .qty-controls { display: flex; align-items: center; gap: 6px; }
 .qty-controls button { width: 30px; height: 30px; border: 1px solid var(--color-border); background: var(--color-white); color: var(--color-black); border-radius: 6px; }
 .qty-controls .danger { color: var(--color-danger); }
@@ -1127,6 +1167,7 @@ pre { white-space: pre-wrap; background: var(--color-black); color: var(--color-
   .nav-tabs { grid-template-columns: repeat(3, 1fr); }
   .pos-view, .split-grid { grid-template-columns: 1fr; }
   .cart-panel { position: static; }
+  .cart-item { grid-template-columns: 1fr; }
   .metrics-grid, .product-form, .user-form { grid-template-columns: 1fr 1fr; }
 }
 

@@ -69,8 +69,8 @@ pub struct Product {
     pub description: Option<String>,
     pub unit_price: f64,
     pub cost_price: Option<f64>,
-    pub quantity_in_stock: i32,
-    pub reorder_level: i32,
+    pub quantity_in_stock: f64,
+    pub reorder_level: f64,
     pub expiry_date: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -86,8 +86,8 @@ pub struct NewProduct {
     pub description: Option<String>,
     pub unit_price: f64,
     pub cost_price: Option<f64>,
-    pub quantity_in_stock: Option<i32>,
-    pub reorder_level: Option<i32>,
+    pub quantity_in_stock: Option<f64>,
+    pub reorder_level: Option<f64>,
     pub expiry_date: Option<String>,
 }
 
@@ -101,8 +101,8 @@ pub struct UpdateProduct {
     pub description: Option<String>,
     pub unit_price: Option<f64>,
     pub cost_price: Option<f64>,
-    pub quantity_in_stock: Option<i32>,
-    pub reorder_level: Option<i32>,
+    pub quantity_in_stock: Option<f64>,
+    pub reorder_level: Option<f64>,
     pub expiry_date: Option<String>,
 }
 
@@ -153,7 +153,7 @@ pub struct SaleItem {
     pub id: i32,
     pub sale_id: i32,
     pub product_id: i32,
-    pub quantity: i32,
+    pub quantity: f64,
     pub unit_price: f64,
     pub barcode_scanned: Option<String>,
     pub created_at: String,
@@ -162,7 +162,7 @@ pub struct SaleItem {
 #[derive(Debug, Deserialize)]
 pub struct NewSaleItem {
     pub product_id: i32,
-    pub quantity: i32,
+    pub quantity: f64,
     pub barcode_scanned: Option<String>,
 }
 
@@ -172,7 +172,7 @@ pub struct InventoryTransaction {
     pub id: i32,
     pub product_id: i32,
     pub transaction_type: String,
-    pub quantity: i32,
+    pub quantity: f64,
     pub reference_id: Option<i32>,
     pub notes: Option<String>,
     pub created_by: Option<i32>,
@@ -183,7 +183,7 @@ pub struct InventoryTransaction {
 pub struct NewInventoryTransaction {
     pub product_id: i32,
     pub transaction_type: String,
-    pub quantity: i32,
+    pub quantity: f64,
     pub reference_id: Option<i32>,
     pub notes: Option<String>,
 }
@@ -235,8 +235,8 @@ pub struct DashboardStats {
 pub struct InventoryStatus {
     pub product_id: i32,
     pub product_name: String,
-    pub current_stock: i32,
-    pub reorder_level: i32,
+    pub current_stock: f64,
+    pub reorder_level: f64,
     pub status: String, // "in_stock", "low_stock", "out_of_stock"
 }
 
@@ -245,7 +245,7 @@ pub struct InventoryStatus {
 pub struct SalesReport {
     pub period: String,
     pub total_sales: f64,
-    pub total_items: i32,
+    pub total_items: f64,
     pub average_sale: f64,
     pub top_products: Vec<ProductSales>,
 }
@@ -254,7 +254,7 @@ pub struct SalesReport {
 pub struct ProductSales {
     pub product_id: i32,
     pub product_name: String,
-    pub quantity_sold: i32,
+    pub quantity_sold: f64,
     pub revenue: f64,
 }
 
@@ -272,7 +272,7 @@ pub struct InventoryItem {
     pub product_id: i32,
     pub product_name: String,
     pub category: String,
-    pub current_stock: i32,
+    pub current_stock: f64,
     pub unit_cost: f64,
     pub total_value: f64,
 }

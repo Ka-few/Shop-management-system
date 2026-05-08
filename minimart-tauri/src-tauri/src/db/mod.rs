@@ -1,6 +1,6 @@
-use rusqlite::{params, Connection, OptionalExtension, Result};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::{params, Connection, OptionalExtension, Result};
 use std::fs;
 use std::path::Path;
 
@@ -57,9 +57,10 @@ fn run_phase2_backfills(pool: &DbPool) -> Result<()> {
 
     let product_ids = {
         let mut stmt = conn.prepare(
-            "SELECT id FROM products WHERE barcode IS NULL OR trim(barcode) = '' ORDER BY id"
+            "SELECT id FROM products WHERE barcode IS NULL OR trim(barcode) = '' ORDER BY id",
         )?;
-        let rows = stmt.query_map([], |row| row.get::<_, i32>(0))?
+        let rows = stmt
+            .query_map([], |row| row.get::<_, i32>(0))?
             .collect::<Result<Vec<_>>>()?;
         rows
     };
@@ -81,11 +82,13 @@ fn create_unique_ean13_barcode(conn: &Connection, product_id: i32) -> Result<Str
     for prefix in 200..=299 {
         let base = format!("{}{:09}", prefix, id);
         let candidate = append_ean13_check_digit(&base);
-        let existing_product_id: Option<i32> = conn.query_row(
-            "SELECT id FROM products WHERE barcode = ?",
-            [&candidate],
-            |row| row.get(0),
-        ).optional()?;
+        let existing_product_id: Option<i32> = conn
+            .query_row(
+                "SELECT id FROM products WHERE barcode = ?",
+                [&candidate],
+                |row| row.get(0),
+            )
+            .optional()?;
 
         if existing_product_id.is_none() || existing_product_id == Some(product_id) {
             return Ok(candidate);
@@ -101,7 +104,11 @@ fn append_ean13_check_digit(base: &str) -> String {
         .enumerate()
         .map(|(index, value)| {
             let digit = value.to_digit(10).unwrap_or(0);
-            if index % 2 == 0 { digit } else { digit * 3 }
+            if index % 2 == 0 {
+                digit
+            } else {
+                digit * 3
+            }
         })
         .sum();
     let check_digit = (10 - (sum % 10)) % 10;
@@ -112,7 +119,11 @@ fn append_ean13_check_digit(base: &str) -> String {
 /// Get database connection from pool
 pub fn get_connection(pool: &DbPool) -> Result<r2d2::PooledConnection<SqliteConnectionManager>> {
     pool.get().map_err(|e| {
-        rusqlite::Error::InvalidColumnType(0, format!("Pool error: {}", e), rusqlite::types::Type::Text)
+        rusqlite::Error::InvalidColumnType(
+            0,
+            format!("Pool error: {}", e),
+            rusqlite::types::Type::Text,
+        )
     })
 }
 
@@ -121,11 +132,9 @@ pub fn initialize_database(pool: &DbPool) -> Result<()> {
     let conn = get_connection(pool)?;
 
     // Check if we have any users
-    let user_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM users",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(0);
+    let user_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
+        .unwrap_or(0);
 
     if user_count == 0 {
         println!("No users found. Creating default admin user...");
@@ -145,14 +154,19 @@ fn create_default_admin(conn: &Connection) -> Result<()> {
     let email = "admin@minimart.com";
     let role = "admin";
 
-    let hashed_password = hash(password, DEFAULT_COST)
-        .map_err(|_e| rusqlite::Error::InvalidColumnType(0, "bcrypt error".to_string(), rusqlite::types::Type::Text))?;
+    let hashed_password = hash(password, DEFAULT_COST).map_err(|_e| {
+        rusqlite::Error::InvalidColumnType(
+            0,
+            "bcrypt error".to_string(),
+            rusqlite::types::Type::Text,
+        )
+    })?;
 
     let now = Utc::now().to_rfc3339();
 
     conn.execute(
         "INSERT INTO users (username, password, email, role, created_at) VALUES (?, ?, ?, ?, ?)",
-        params![username, hashed_password, email, role, now]
+        params![username, hashed_password, email, role, now],
     )?;
 
     println!("Default admin user created: admin/admin123");
@@ -162,7 +176,11 @@ fn create_default_admin(conn: &Connection) -> Result<()> {
 /// Backup database
 pub fn backup_database(db_path: &str, backup_path: &str) -> Result<()> {
     fs::copy(db_path, backup_path).map_err(|e| {
-        rusqlite::Error::InvalidColumnType(0, format!("Backup error: {}", e), rusqlite::types::Type::Text)
+        rusqlite::Error::InvalidColumnType(
+            0,
+            format!("Backup error: {}", e),
+            rusqlite::types::Type::Text,
+        )
     })?;
     println!("Database backed up to: {}", backup_path);
     Ok(())
@@ -172,10 +190,12 @@ pub fn backup_database(db_path: &str, backup_path: &str) -> Result<()> {
 pub fn get_db_stats(pool: &DbPool) -> Result<serde_json::Value> {
     let conn = get_connection(pool)?;
 
-    let product_count: i64 = conn.query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0))?;
+    let product_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0))?;
     let sale_count: i64 = conn.query_row("SELECT COUNT(*) FROM sales", [], |row| row.get(0))?;
     let user_count: i64 = conn.query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))?;
-    let category_count: i64 = conn.query_row("SELECT COUNT(*) FROM categories", [], |row| row.get(0))?;
+    let category_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM categories", [], |row| row.get(0))?;
 
     let stats = serde_json::json!({
         "products": product_count,
@@ -216,30 +236,31 @@ pub fn validate_database_integrity(pool: &DbPool) -> Result<serde_json::Value> {
     }
 
     let integrity_issues = {
-        let mut stmt = conn.prepare(
-            "SELECT issue, count FROM phase2_product_integrity_issues ORDER BY issue"
-        )?;
-        let rows = stmt.query_map([], |row| {
-            Ok(serde_json::json!({
-                "issue": row.get::<_, String>(0)?,
-                "count": row.get::<_, i64>(1)?,
-            }))
-        })?
-        .collect::<Result<Vec<_>>>()?;
+        let mut stmt = conn
+            .prepare("SELECT issue, count FROM phase2_product_integrity_issues ORDER BY issue")?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(serde_json::json!({
+                    "issue": row.get::<_, String>(0)?,
+                    "count": row.get::<_, i64>(1)?,
+                }))
+            })?
+            .collect::<Result<Vec<_>>>()?;
         rows
     };
 
     let foreign_key_issues = {
         let mut stmt = conn.prepare("PRAGMA foreign_key_check")?;
-        let rows = stmt.query_map([], |row| {
-            Ok(serde_json::json!({
-                "table": row.get::<_, String>(0)?,
-                "rowid": row.get::<_, i64>(1)?,
-                "parent": row.get::<_, String>(2)?,
-                "fkid": row.get::<_, i64>(3)?,
-            }))
-        })?
-        .collect::<Result<Vec<_>>>()?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(serde_json::json!({
+                    "table": row.get::<_, String>(0)?,
+                    "rowid": row.get::<_, i64>(1)?,
+                    "parent": row.get::<_, String>(2)?,
+                    "fkid": row.get::<_, i64>(3)?,
+                }))
+            })?
+            .collect::<Result<Vec<_>>>()?;
         rows
     };
 

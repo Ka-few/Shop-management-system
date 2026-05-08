@@ -1,5 +1,7 @@
 use crate::db::DbPool;
-use crate::models::{Account, JournalEntry, JournalLine, NewAccount, NewJournalEntry, NewJournalLine, UpdateAccount};
+use crate::models::{
+    Account, JournalEntry, JournalLine, NewAccount, NewJournalEntry, NewJournalLine, UpdateAccount,
+};
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Result};
 use std::sync::Arc;
@@ -76,20 +78,24 @@ pub async fn delete_account(pool: State<'_, Arc<DbPool>>, id: i32) -> Result<(),
     let conn = crate::db::get_connection(&pool)
         .map_err(|e| format!("Database connection error: {}", e))?;
 
-    let used: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM journal_lines WHERE account_id = ?",
-        [id],
-        |row| row.get(0),
-    ).map_err(|e| format!("Journal usage check error: {}", e))?;
+    let used: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM journal_lines WHERE account_id = ?",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Journal usage check error: {}", e))?;
     if used > 0 {
         return Err("Account is used in journal entries and cannot be deleted.".to_string());
     }
 
-    let child_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM accounts WHERE parent_id = ? AND is_active = 1",
-        [id],
-        |row| row.get(0),
-    ).map_err(|e| format!("Child account check error: {}", e))?;
+    let child_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM accounts WHERE parent_id = ? AND is_active = 1",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Child account check error: {}", e))?;
     if child_count > 0 {
         return Err("Account has active child accounts and cannot be deleted.".to_string());
     }
@@ -97,7 +103,8 @@ pub async fn delete_account(pool: State<'_, Arc<DbPool>>, id: i32) -> Result<(),
     conn.execute(
         "UPDATE accounts SET is_active = 0, updated_at = ? WHERE id = ?",
         params![Utc::now().to_rfc3339(), id],
-    ).map_err(|e| format!("Account delete error: {}", e))?;
+    )
+    .map_err(|e| format!("Account delete error: {}", e))?;
 
     Ok(())
 }
@@ -114,7 +121,8 @@ pub async fn get_journal_entries(
     let conn = crate::db::get_connection(&pool)
         .map_err(|e| format!("Database connection error: {}", e))?;
 
-    let mut entries = fetch_journal_entries(&conn, date_from, date_to, account_id, reference, search)?;
+    let mut entries =
+        fetch_journal_entries(&conn, date_from, date_to, account_id, reference, search)?;
     for entry in &mut entries {
         entry.lines = fetch_journal_lines(&conn, entry.id)?;
     }
@@ -156,19 +164,25 @@ pub async fn reverse_journal_entry(
         return Err("Journal entry is already reversed.".to_string());
     }
 
-    let reversal_lines = existing.lines.iter().map(|line| NewJournalLine {
-        account_id: line.account_id,
-        debit: line.credit,
-        credit: line.debit,
-        memo: Some(format!("Reversal of journal entry #{}", id)),
-    }).collect::<Vec<_>>();
+    let reversal_lines = existing
+        .lines
+        .iter()
+        .map(|line| NewJournalLine {
+            account_id: line.account_id,
+            debit: line.credit,
+            credit: line.debit,
+            memo: Some(format!("Reversal of journal entry #{}", id)),
+        })
+        .collect::<Vec<_>>();
 
-    let tx = conn.transaction()
+    let tx = conn
+        .transaction()
         .map_err(|e| format!("Transaction begin error: {}", e))?;
     tx.execute(
         "UPDATE journal_entries SET status = 'reversed', updated_at = ? WHERE id = ?",
         params![Utc::now().to_rfc3339(), id],
-    ).map_err(|e| format!("Journal reversal update error: {}", e))?;
+    )
+    .map_err(|e| format!("Journal reversal update error: {}", e))?;
 
     let reversal_id = insert_journal_entry(
         &tx,
@@ -181,7 +195,8 @@ pub async fn reverse_journal_entry(
         Some(id),
         &reversal_lines,
     )?;
-    tx.commit().map_err(|e| format!("Transaction commit error: {}", e))?;
+    tx.commit()
+        .map_err(|e| format!("Transaction commit error: {}", e))?;
 
     fetch_journal_entry(&conn, reversal_id)
 }
@@ -268,11 +283,13 @@ pub fn post_sale_accounting(
     vat: f64,
     cogs: f64,
 ) -> Result<(), String> {
-    let existing: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM journal_entries WHERE source_type = 'sale' AND source_id = ?",
-        [sale_id],
-        |row| row.get(0),
-    ).map_err(|e| format!("Sale journal lookup error: {}", e))?;
+    let existing: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM journal_entries WHERE source_type = 'sale' AND source_id = ?",
+            [sale_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Sale journal lookup error: {}", e))?;
     if existing > 0 {
         return Ok(());
     }
@@ -289,14 +306,39 @@ pub fn post_sale_accounting(
     let net_revenue = (total - vat).max(0.0);
 
     let mut lines = vec![
-        NewJournalLine { account_id: payment_account, debit: total, credit: 0.0, memo: Some("Customer payment".to_string()) },
-        NewJournalLine { account_id: revenue_account, debit: 0.0, credit: net_revenue, memo: Some("Sale revenue net of VAT".to_string()) },
-        NewJournalLine { account_id: vat_account, debit: 0.0, credit: vat, memo: Some("VAT payable".to_string()) },
+        NewJournalLine {
+            account_id: payment_account,
+            debit: total,
+            credit: 0.0,
+            memo: Some("Customer payment".to_string()),
+        },
+        NewJournalLine {
+            account_id: revenue_account,
+            debit: 0.0,
+            credit: net_revenue,
+            memo: Some("Sale revenue net of VAT".to_string()),
+        },
+        NewJournalLine {
+            account_id: vat_account,
+            debit: 0.0,
+            credit: vat,
+            memo: Some("VAT payable".to_string()),
+        },
     ];
 
     if cogs > EPSILON {
-        lines.push(NewJournalLine { account_id: cogs_account, debit: cogs, credit: 0.0, memo: Some("Cost of goods sold".to_string()) });
-        lines.push(NewJournalLine { account_id: inventory_account, debit: 0.0, credit: cogs, memo: Some("Inventory relieved".to_string()) });
+        lines.push(NewJournalLine {
+            account_id: cogs_account,
+            debit: cogs,
+            credit: 0.0,
+            memo: Some("Cost of goods sold".to_string()),
+        });
+        lines.push(NewJournalLine {
+            account_id: inventory_account,
+            debit: 0.0,
+            credit: cogs,
+            memo: Some("Inventory relieved".to_string()),
+        });
     }
 
     create_journal_entry_tx(
@@ -317,34 +359,56 @@ pub fn post_inventory_adjustment_accounting(
     conn: &mut Connection,
     transaction_id: i32,
     product_id: i32,
-    quantity: i32,
+    quantity: f64,
     reason: &str,
 ) -> Result<(), String> {
-    if quantity == 0 {
+    if quantity.abs() <= EPSILON {
         return Ok(());
     }
 
-    let unit_cost: f64 = conn.query_row(
-        "SELECT COALESCE(cost_price, unit_price, 0) FROM products WHERE id = ?",
-        [product_id],
-        |row| row.get(0),
-    ).map_err(|e| format!("Product cost lookup error: {}", e))?;
-    let value = (unit_cost * f64::from(quantity.abs())).max(0.0);
+    let unit_cost: f64 = conn
+        .query_row(
+            "SELECT COALESCE(cost_price, unit_price, 0) FROM products WHERE id = ?",
+            [product_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Product cost lookup error: {}", e))?;
+    let value = (unit_cost * quantity.abs()).max(0.0);
     if value <= EPSILON {
         return Ok(());
     }
 
     let inventory_account = account_id_by_code(conn, "1200")?;
     let adjustment_account = account_id_by_code(conn, "5200")?;
-    let lines = if quantity > 0 {
+    let lines = if quantity > 0.0 {
         vec![
-            NewJournalLine { account_id: inventory_account, debit: value, credit: 0.0, memo: Some(reason.to_string()) },
-            NewJournalLine { account_id: adjustment_account, debit: 0.0, credit: value, memo: Some("Inventory gain offset".to_string()) },
+            NewJournalLine {
+                account_id: inventory_account,
+                debit: value,
+                credit: 0.0,
+                memo: Some(reason.to_string()),
+            },
+            NewJournalLine {
+                account_id: adjustment_account,
+                debit: 0.0,
+                credit: value,
+                memo: Some("Inventory gain offset".to_string()),
+            },
         ]
     } else {
         vec![
-            NewJournalLine { account_id: adjustment_account, debit: value, credit: 0.0, memo: Some(reason.to_string()) },
-            NewJournalLine { account_id: inventory_account, debit: 0.0, credit: value, memo: Some("Inventory reduction".to_string()) },
+            NewJournalLine {
+                account_id: adjustment_account,
+                debit: value,
+                credit: 0.0,
+                memo: Some(reason.to_string()),
+            },
+            NewJournalLine {
+                account_id: inventory_account,
+                debit: 0.0,
+                credit: value,
+                memo: Some("Inventory reduction".to_string()),
+            },
         ]
     };
 
@@ -419,11 +483,13 @@ fn validate_parent(
     }
 
     if let Some(parent_id) = parent_id {
-        let parent_type: String = conn.query_row(
-            "SELECT type FROM accounts WHERE id = ? AND is_active = 1",
-            [parent_id],
-            |row| row.get(0),
-        ).map_err(|_| "Parent account must be active and valid.".to_string())?;
+        let parent_type: String = conn
+            .query_row(
+                "SELECT type FROM accounts WHERE id = ? AND is_active = 1",
+                [parent_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| "Parent account must be active and valid.".to_string())?;
         if parent_type != account_type {
             return Err("Parent account must have the same account type.".to_string());
         }
@@ -433,19 +499,23 @@ fn validate_parent(
             if Some(id) == account_id {
                 return Err("Parent selection would create a cycle.".to_string());
             }
-            current = conn.query_row(
-                "SELECT parent_id FROM accounts WHERE id = ?",
-                [id],
-                |row| row.get(0),
-            ).optional().map_err(|e| format!("Parent validation error: {}", e))?
-            .flatten();
+            current = conn
+                .query_row("SELECT parent_id FROM accounts WHERE id = ?", [id], |row| {
+                    row.get(0)
+                })
+                .optional()
+                .map_err(|e| format!("Parent validation error: {}", e))?
+                .flatten();
         }
     }
 
     Ok(())
 }
 
-fn validate_journal_lines(conn: &Connection, lines: &[NewJournalLine]) -> Result<(f64, f64), String> {
+fn validate_journal_lines(
+    conn: &Connection,
+    lines: &[NewJournalLine],
+) -> Result<(f64, f64), String> {
     if lines.len() < 2 {
         return Err("At least two journal lines are required.".to_string());
     }
@@ -462,11 +532,13 @@ fn validate_journal_lines(conn: &Connection, lines: &[NewJournalLine]) -> Result
         if line.debit <= EPSILON && line.credit <= EPSILON {
             return Err("Each journal line must contain a debit or a credit.".to_string());
         }
-        let active: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM accounts WHERE id = ? AND is_active = 1",
-            [line.account_id],
-            |row| row.get(0),
-        ).map_err(|e| format!("Account validation error: {}", e))?;
+        let active: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM accounts WHERE id = ? AND is_active = 1",
+                [line.account_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Account validation error: {}", e))?;
         if active == 0 {
             return Err("Journal lines must use active accounts.".to_string());
         }
@@ -492,7 +564,8 @@ fn create_journal_entry_tx(
     lines: &[NewJournalLine],
 ) -> Result<i32, String> {
     validate_journal_lines(conn, lines)?;
-    let tx = conn.transaction()
+    let tx = conn
+        .transaction()
         .map_err(|e| format!("Transaction begin error: {}", e))?;
     let id = insert_journal_entry(
         &tx,
@@ -505,7 +578,8 @@ fn create_journal_entry_tx(
         None,
         lines,
     )?;
-    tx.commit().map_err(|e| format!("Transaction commit error: {}", e))?;
+    tx.commit()
+        .map_err(|e| format!("Transaction commit error: {}", e))?;
     Ok(id)
 }
 
@@ -580,7 +654,8 @@ fn fetch_journal_entries(
     }
     if let Some(value) = search {
         if !value.trim().is_empty() {
-            conditions.push("(je.description LIKE ? OR COALESCE(je.reference, '') LIKE ?)".to_string());
+            conditions
+                .push("(je.description LIKE ? OR COALESCE(je.reference, '') LIKE ?)".to_string());
             params_vec.push(format!("%{}%", value.trim()));
             params_vec.push(format!("%{}%", value.trim()));
         }
@@ -598,7 +673,10 @@ fn fetch_journal_entries(
          LIMIT 500",
         conditions.join(" AND ")
     );
-    let refs = params_vec.iter().map(|value| value.as_str()).collect::<Vec<_>>();
+    let refs = params_vec
+        .iter()
+        .map(|value| value.as_str())
+        .collect::<Vec<_>>();
 
     conn.prepare(&query)
         .map_err(|e| format!("Journal query preparation error: {}", e))?
@@ -674,5 +752,11 @@ fn account_id_by_code(conn: &Connection, code: &str) -> Result<i32, String> {
         "SELECT id FROM accounts WHERE code = ? AND is_active = 1",
         [code],
         |row| row.get(0),
-    ).map_err(|_| format!("Required accounting account {} is missing or inactive.", code))
+    )
+    .map_err(|_| {
+        format!(
+            "Required accounting account {} is missing or inactive.",
+            code
+        )
+    })
 }

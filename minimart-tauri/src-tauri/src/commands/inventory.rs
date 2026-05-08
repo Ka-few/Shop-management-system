@@ -1,10 +1,10 @@
-use crate::db::DbPool;
 use crate::commands::accounting;
+use crate::db::DbPool;
 use crate::models::InventoryStatus;
-use rusqlite::{params, Result};
-use tauri::State;
-use std::sync::Arc;
 use chrono::Utc;
+use rusqlite::{params, Result};
+use std::sync::Arc;
+use tauri::State;
 
 #[tauri::command]
 pub async fn get_inventory_status(
@@ -20,10 +20,10 @@ pub async fn get_inventory_status(
     .query_map([], |row| {
         let id: i32 = row.get(0)?;
         let name: String = row.get(1)?;
-        let stock: i32 = row.get(2)?;
-        let reorder_level: i32 = row.get(3)?;
+        let stock: f64 = row.get(2)?;
+        let reorder_level: f64 = row.get(3)?;
 
-        let status = if stock <= 0 {
+        let status = if stock <= 0.0 {
             "out_of_stock"
         } else if stock <= reorder_level {
             "low_stock"
@@ -50,7 +50,7 @@ pub async fn get_inventory_status(
 pub async fn adjust_inventory(
     pool: State<'_, Arc<DbPool>>,
     product_id: i32,
-    quantity: i32,
+    quantity: f64,
     reason: String,
 ) -> Result<(), String> {
     let mut conn = crate::db::get_connection(&pool)
@@ -78,7 +78,7 @@ pub async fn adjust_inventory(
         params![
             product_id,
             "adjustment",
-            quantity,
+    quantity,
             reason,
             Utc::now().to_rfc3339(),
         ]
@@ -123,10 +123,10 @@ pub async fn get_low_stock_items(
     .query_map([threshold_value], |row| {
         let id: i32 = row.get(0)?;
         let name: String = row.get(1)?;
-        let stock: i32 = row.get(2)?;
-        let reorder_level: i32 = row.get(3)?;
+        let stock: f64 = row.get(2)?;
+        let reorder_level: f64 = row.get(3)?;
 
-        let status = if stock <= 0 {
+        let status = if stock <= 0.0 {
             "out_of_stock"
         } else {
             "low_stock"
@@ -171,7 +171,8 @@ pub async fn get_inventory_transactions(
     }
 
     let param_refs: Vec<&str> = params.iter().map(|s| s.as_str()).collect();
-    let transactions = conn.prepare(&query)
+    let transactions = conn
+        .prepare(&query)
         .map_err(|e| format!("Query preparation error: {}", e))?
         .query_map(rusqlite::params_from_iter(param_refs), |row| {
             Ok(crate::models::InventoryTransaction {

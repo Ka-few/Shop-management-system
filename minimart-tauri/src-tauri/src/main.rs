@@ -1,9 +1,9 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod commands;
 mod db;
 mod models;
-mod commands;
 
 use std::sync::Arc;
 use tauri::Manager;
@@ -49,7 +49,6 @@ fn main() {
             commands::auth::create_user,
             commands::auth::update_user,
             commands::auth::delete_user,
-
             // Product commands
             commands::products::get_products,
             commands::products::get_product,
@@ -57,11 +56,9 @@ fn main() {
             commands::products::update_product,
             commands::products::delete_product,
             commands::products::get_product_by_barcode,
-
             // Category commands
             commands::categories::get_categories,
             commands::categories::create_category,
-
             // Sale commands
             commands::sales::create_sale,
             commands::sales::get_sales,
@@ -70,34 +67,28 @@ fn main() {
             commands::sales::create_sale_from_barcode_scan,
             commands::sales::complete_sale,
             commands::sales::get_daily_sales_summary,
-
             // Inventory commands
             commands::inventory::get_inventory_status,
             commands::inventory::adjust_inventory,
             commands::inventory::get_low_stock_items,
             commands::inventory::get_inventory_transactions,
-
             // Barcode commands
             commands::barcode::generate_barcode,
             commands::barcode::log_barcode_scan,
             commands::barcode::get_scan_history,
-
             // Dashboard commands
             commands::dashboard::get_dashboard_stats,
             commands::dashboard::get_recent_sales,
             commands::dashboard::get_top_products,
             commands::dashboard::get_sales_by_category,
-
             // Settings commands
             commands::settings::get_settings,
             commands::settings::update_setting,
             commands::settings::get_setting_value,
-
             // Database commands
             commands::database::backup_database_cmd,
             commands::database::get_database_stats,
             commands::database::validate_database,
-
             // Accounting commands
             commands::accounting::get_accounts,
             commands::accounting::create_account,
